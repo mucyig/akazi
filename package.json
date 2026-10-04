@@ -11,5 +11,8 @@
     "start": "node server/src/index.js",
     "dev:server": "node server/src/index.js",
     "dev:client": "npm --prefix client run dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.147.0"
   }
 }
