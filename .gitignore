@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.env
+server/.env
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+client/dist/
+
+# Server local uploads & database fallback
+server/uploads/*
+!server/uploads/.gitkeep
+server/data/db.json
+
+# Logs & temporary files
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

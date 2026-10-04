@@ -1,0 +1,52 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 642 >>
+stream
+BT
+/F1 16 Tf
+50 720 Td
+(CURRICULUM VITAE - ERIC MANZI) Tj
+/F1 11 Tf
+0 -30 Td
+(Name: Eric Manzi | Contact: +250 788 333 222 | Email: eric.manzi@example.rw) Tj
+0 -18 Td
+(National ID: 1199880012345678 | Location: Gasabo, Kigali) Tj
+0 -18 Td
+(Education: TVET Certificate in Hospitality & Food and Beverage Service 2022) Tj
+0 -18 Td
+(Languages: Kinyarwanda Native, English Fluent) Tj
+0 -18 Td
+(Experience: Waiter at Mille Collines Terrace 2023 - 2025) Tj
+0 -18 Td
+(- Welcomed guests, took food and beverage orders, provided banquet service.) Tj
+0 -18 Td
+(- Maintained cash register and processed mobile money and POS card payments.) Tj
+0 -18 Td
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000244 00000 n 
+0000000300 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1042
+%%EOF

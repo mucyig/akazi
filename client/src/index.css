@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* One brand hue (deep green) re-maps every blue-* utility already used across the app */
+@theme {
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --color-blue-50: #f1f7f4;
+  --color-blue-100: #ddeee6;
+  --color-blue-200: #bcdccd;
+  --color-blue-300: #8fc3ab;
+  --color-blue-400: #58a384;
+  --color-blue-500: #2f8466;
+  --color-blue-600: #1f6b52;
+  --color-blue-700: #1a5643;
+  --color-blue-800: #164536;
+  --color-blue-900: #12382d;
+  --color-blue-950: #0a221b;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: #faf9f6;
+    color: #14201b;
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { min-height: 100vh; display: flex; flex-direction: column; }
+  :focus-visible { outline: 2px solid #1f6b52; outline-offset: 2px; }
+  input, textarea, select { font-family: inherit; }
+}
+
+@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.anim-slide-in { animation: slideInRight .28s cubic-bezier(.2,.8,.2,1); }
+.anim-fade-up { animation: fadeUp .35s ease both; }
+@media (prefers-reduced-motion: reduce) { .anim-slide-in, .anim-fade-up { animation: none; } }
+
+.display { font-family: var(--font-serif); letter-spacing: -0.02em; }
+.page { max-width: 72rem; margin: 0 auto; padding-left: 1.25rem; padding-right: 1.25rem; }
+@media (min-width: 640px) { .page { padding-left: 2rem; padding-right: 2rem; } }
+.eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #1f6b52; }
+.rule { border-color: #e4e1d8; }
