@@ -38,8 +38,8 @@ async function seed() {
   const hotelUserId = hotelUserRes.rows[0].id;
 
   const hotelEmpRes = await query(
-    `INSERT INTO employers (user_id, company_name, industry, website, location, contact_person, description, logo_url, registration_doc_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    `INSERT INTO employers (user_id, company_name, industry, website, location, contact_person, description, logo_url, registration_doc_url, payment_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
     [
       hotelUserId,
       'Kigali Serena Hotel',
@@ -49,10 +49,18 @@ async function seed() {
       'Claudine Mukamana (Human Resources)',
       'A leading 5-star hotel in Kigali providing hospitality, dining, conference facilities, and international accommodation services.',
       '',
-      '/uploads/documents/serena_hotel_rdb_registration.pdf'
+      '/uploads/documents/serena_hotel_rdb_registration.pdf',
+      'paid'
     ]
   );
   const hotelEmpId = hotelEmpRes.rows[0].id;
+
+  // Initial verified payment
+  await query(
+    `INSERT INTO payments (employer_id, user_id, ref, amount, phone, provider, kind, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [hotelEmpId, hotelUserId, 'PAYPACK_SEED_SERENA_001', 5000, '+250 788 444 111', 'mtn', 'CASHIN', 'paid']
+  );
 
   // Real positions created by Kigali Serena Hotel: Waitress, Chef, Front Desk Receptionist
   // Position 1: Restaurant Waitress / Waiter
