@@ -1,10 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/akazi',
-  connectionTimeoutMillis: 2500,
+  connectionTimeoutMillis: 10000,
 });
 
 let isPgConnected = false;
