@@ -1,24 +1,35 @@
 function normalizePaypackStatus(data = {}) {
-  const status = data?.status;
+  const providerStatus = data?.status;
+  const status = typeof providerStatus === 'string' ? providerStatus.toLowerCase() : '';
 
-  if (status === 'successful') {
+  if (status === 'successful' || status === 'success') {
     return {
       status: 'paid',
-      providerStatus: status,
+      providerStatus,
     };
   }
 
   if (status === 'failed') {
     return {
       status: 'failed',
-      providerStatus: status,
+      providerStatus,
     };
   }
 
   return {
     status: 'pending',
-    providerStatus: status || 'pending',
+    providerStatus: providerStatus || 'pending',
   };
+}
+
+function resolvePaypackStatus(currentStatus, incomingStatus) {
+  if (currentStatus === 'paid' || incomingStatus === 'paid') return 'paid';
+  if (currentStatus === 'failed' || incomingStatus === 'failed') return 'failed';
+  return 'pending';
+}
+
+function isProcessedPaypackEvent(event) {
+  return event?.kind === 'transaction:processed';
 }
 
 function buildWebhookUpdatePayload(data = {}, rawBody) {
@@ -38,5 +49,7 @@ function buildWebhookUpdatePayload(data = {}, rawBody) {
 
 module.exports = {
   normalizePaypackStatus,
+  resolvePaypackStatus,
+  isProcessedPaypackEvent,
   buildWebhookUpdatePayload,
 };

@@ -4,7 +4,11 @@ const router = express.Router();
 const { query } = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const paypack = require('../lib/paypack');
-const { buildWebhookUpdatePayload } = require('../lib/payment-webhook');
+const {
+  buildWebhookUpdatePayload,
+  resolvePaypackStatus,
+  isProcessedPaypackEvent,
+} = require('../lib/payment-webhook');
 
 // Employer verification fee (RWF) - employer must pay this AFTER admin approval.
 const EMPLOYER_FEE = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '5000', 10);
@@ -137,8 +141,8 @@ router.post('/paypack/webhook', async (req, res) => {
     const event = req.body || {};
     const data = event.data || {};
 
-    // We only act on processed transactions
-    if (event.kind && event.kind !== 'transaction:processed') {
+    // PayPack sends transaction:processed for customer confirmation or cancellation.
+    if (!isProcessedPaypackEvent(event)) {
       return res.json({ received: true, ignored: true });
     }
 
@@ -154,7 +158,8 @@ router.post('/paypack/webhook', async (req, res) => {
     }
 
     const payloadInfo = buildWebhookUpdatePayload(data, raw);
-    const newStatus = payloadInfo.status;
+    const newStatus = resolvePaypackStatus(payment.status, payloadInfo.status);
+    const becamePaid = payment.status !== 'paid' && newStatus === 'paid';
 
     await query(
       'UPDATE payments SET status = $1, provider = $2, provider_status = $3, raw_payload = $4 WHERE ref = $5',
@@ -169,16 +174,18 @@ router.post('/paypack/webhook', async (req, res) => {
 
     if (newStatus === 'paid') {
       await query('UPDATE employers SET payment_status = $1 WHERE id = $2', ['paid', payment.employer_id]);
-      await query(
-        'INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1, $2, $3, $4, $5)',
-        [
-          payment.user_id,
-          'Payment received - your account is active!',
-          `Your ${EMPLOYER_FEE.toLocaleString('en-US')} RWF verification payment was received. You can now post jobs and hire on Akazi.`,
-          'payment',
-          '/employer/dashboard'
-        ]
-      );
+      if (becamePaid) {
+        await query(
+          'INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1, $2, $3, $4, $5)',
+          [
+            payment.user_id,
+            'Payment received - your account is active!',
+            `Your ${EMPLOYER_FEE.toLocaleString('en-US')} RWF verification payment was received. You can now post jobs and hire on Akazi.`,
+            'payment',
+            '/employer/dashboard'
+          ]
+        );
+      }
     } else if (newStatus === 'failed') {
       await query('UPDATE employers SET payment_status = $1 WHERE id = $2', ['failed', payment.employer_id]);
     }
