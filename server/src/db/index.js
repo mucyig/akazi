@@ -77,6 +77,7 @@ async function initDb() {
         currency VARCHAR(10) DEFAULT 'RWF',
         phone VARCHAR(50),
         provider VARCHAR(20),
+        provider_status VARCHAR(30),
         kind VARCHAR(20) DEFAULT 'CASHIN',
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         raw_payload TEXT,
@@ -84,6 +85,8 @@ async function initDb() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await client.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS provider_status VARCHAR(30);`);
+    await client.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS raw_payload TEXT;`);
     client.release();
   } catch (err) {
     isPgConnected = false;
@@ -464,6 +467,21 @@ function executeFallbackQuery(sql, params = []) {
         emp.payment_status = status;
         emp.updated_at = now;
         updatedRows.push(emp);
+      }
+    } else if (lower.includes('update payments set status = $1, provider = $2, provider_status = $3, raw_payload = $4 where ref = $5')) {
+      const status = params[0];
+      const provider = params[1];
+      const providerStatus = params[2];
+      const rawPayload = params[3];
+      const ref = params[4];
+      const payment = store.payments.find(p => p.ref === ref);
+      if (payment) {
+        payment.status = status;
+        payment.provider = provider || null;
+        payment.provider_status = providerStatus || null;
+        payment.raw_payload = rawPayload || null;
+        payment.updated_at = now;
+        updatedRows.push(payment);
       }
     } else if (lower.includes('update payments set status = $1, provider = $2')) {
       const status = params[0];

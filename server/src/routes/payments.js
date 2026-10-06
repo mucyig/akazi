@@ -4,6 +4,7 @@ const router = express.Router();
 const { query } = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const paypack = require('../lib/paypack');
+const { buildWebhookUpdatePayload } = require('../lib/payment-webhook');
 
 // Employer verification fee (RWF) - employer must pay this AFTER admin approval.
 const EMPLOYER_FEE = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '5000', 10);
@@ -152,14 +153,19 @@ router.post('/paypack/webhook', async (req, res) => {
       return res.json({ received: true, unmatched: true });
     }
 
-    const success = data.status === 'successful';
-    const newStatus = success ? 'paid' : (data.status === 'failed' ? 'failed' : 'pending');
+    const payloadInfo = buildWebhookUpdatePayload(data, raw);
+    const newStatus = payloadInfo.status;
 
-    await query('UPDATE payments SET status = $1, provider = $2 WHERE ref = $3', [
-      newStatus,
-      data.provider || null,
-      ref
-    ]);
+    await query(
+      'UPDATE payments SET status = $1, provider = $2, provider_status = $3, raw_payload = $4 WHERE ref = $5',
+      [
+        newStatus,
+        payloadInfo.provider,
+        payloadInfo.providerStatus,
+        payloadInfo.rawPayload,
+        ref,
+      ]
+    );
 
     if (newStatus === 'paid') {
       await query('UPDATE employers SET payment_status = $1 WHERE id = $2', ['paid', payment.employer_id]);

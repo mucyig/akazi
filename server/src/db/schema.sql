@@ -48,6 +48,7 @@ CREATE TABLE payments (
     currency VARCHAR(10) DEFAULT 'RWF',
     phone VARCHAR(50),
     provider VARCHAR(20),
+    provider_status VARCHAR(30),
     kind VARCHAR(20) DEFAULT 'CASHIN',
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed')),
     raw_payload TEXT,
