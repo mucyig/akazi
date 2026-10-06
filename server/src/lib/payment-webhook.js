@@ -35,9 +35,11 @@ function isProcessedPaypackEvent(event) {
 function buildWebhookUpdatePayload(data = {}, rawBody) {
   const provider = data?.provider || null;
   const normalized = normalizePaypackStatus(data);
-  const rawPayload = typeof rawBody === 'string'
-    ? rawBody
-    : (rawBody ? JSON.stringify(rawBody, null, 2) : JSON.stringify(data || {}, null, 2));
+  const rawPayload = Buffer.isBuffer(rawBody)
+    ? rawBody.toString('utf8')
+    : (typeof rawBody === 'string'
+      ? rawBody
+      : JSON.stringify(rawBody || data || {}, null, 2));
 
   return {
     status: normalized.status,

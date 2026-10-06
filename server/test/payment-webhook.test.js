@@ -37,6 +37,14 @@ test('failed paypack event preserves its raw provider payload', () => {
   assert.match(payload.rawPayload, /Insufficient funds/);
 });
 
+test('raw webhook buffers are stored as their original JSON text', () => {
+  const rawBody = Buffer.from('{"kind":"transaction:processed","data":{"status":"failed"}}');
+  const payload = buildWebhookUpdatePayload({ status: 'failed' }, rawBody);
+
+  assert.equal(payload.rawPayload, rawBody.toString('utf8'));
+  assert.doesNotMatch(payload.rawPayload, /\"type\":\"Buffer\"/);
+});
+
 test('unknown paypack status remains pending', () => {
   const result = normalizePaypackStatus({ status: 'processing', provider: 'airtel' });
 
