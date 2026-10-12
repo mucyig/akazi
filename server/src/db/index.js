@@ -10,6 +10,8 @@ types.setTypeParser(1082, (v) => v);
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  keepAlive: true,
   max: 10,
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 });
@@ -66,6 +68,13 @@ async function initDb() {
       "ALTER TABLE payments ADD COLUMN IF NOT EXISTS raw_payload TEXT",
       "ALTER TABLE job_seekers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT 'other'",
       "ALTER TABLE job_seekers DROP COLUMN IF EXISTS national_id",
+      "ALTER TABLE audit_log ALTER COLUMN target_id TYPE VARCHAR(255)",
+      "CREATE INDEX IF NOT EXISTS idx_jobs_employer_id ON jobs(employer_id)",
+      "CREATE INDEX IF NOT EXISTS idx_jobs_active_created ON jobs(status, created_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_applications_job_status ON applications(job_id, status)",
+      "CREATE INDEX IF NOT EXISTS idx_applications_emp_status ON applications(employee_id, status)",
+      "CREATE INDEX IF NOT EXISTS idx_chat_app_created ON chat_messages(application_id, created_at ASC)",
+      "CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC)",
     ];
     for (const sql of alters) await client.query(sql);
 

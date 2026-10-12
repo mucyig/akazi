@@ -115,6 +115,28 @@ function verifyLocalSignature(key, exp, sig) {
 async function getDownloadUrl(key, { expiresIn = 300 } = {}) {
   const filename = key.split('/').pop();
   if (useCloud) {
+    try {
+      await s3.send(new S3.HeadObjectCommand({ Bucket: bucket, Key: key }));
+    } catch (err) {
+      if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) {
+        // If file exists locally on disk (e.g. from seed data), upload it to bucket on the fly
+        const p = path.join(LOCAL_ROOT, key);
+        if (fs.existsSync(p)) {
+          try {
+            await put(key, fs.readFileSync(p));
+            console.log(`[Storage] Auto-synced local file to B2: ${key}`);
+          } catch (uploadErr) {
+            console.warn('[Storage] Auto-upload to B2 failed:', uploadErr.message);
+            return null;
+          }
+        } else {
+          return null; // Object does not exist in bucket or disk
+        }
+      } else {
+        console.warn('[Storage] HeadObject check warning:', err.message);
+      }
+    }
+
     const url = await presigner.getSignedUrl(
       s3,
       new S3.GetObjectCommand({

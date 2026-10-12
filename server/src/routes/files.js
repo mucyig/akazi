@@ -59,6 +59,7 @@ router.get('/url', authenticateToken, async (req, res) => {
     if (!key) return res.status(400).json({ message: 'Invalid file reference.' });
     if (!(await canAccess(req.user, key))) return res.status(404).json({ message: 'File not found or you do not have access to it.' });
     const url = await storage.getDownloadUrl(key, { expiresIn: 300 });
+    if (!url) return res.status(404).json({ message: 'The requested document does not exist or has been removed.' });
     if (key.startsWith('documents/') || key.startsWith('resumes/')) audit(req, 'file.opened', 'file', key);
     res.set('Cache-Control', 'no-store');
     res.json({ url, expires_in: 300 });

@@ -104,6 +104,7 @@ app.get('/api/stats', async (req, res) => {
              WHERE j.status = 'active' AND u.status = 'approved' AND (j.deadline IS NULL OR j.deadline >= (NOW() AT TIME ZONE 'Africa/Kigali')::date)`),
       query("SELECT COUNT(*)::int AS count FROM users WHERE role = 'employer' AND status = 'approved'"),
     ]);
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     res.json({ stats: { activeJobs: jobsRes.rows[0].count, approvedEmployers: employersRes.rows[0].count } });
   } catch (err) {
     console.error('Platform stats error:', err.message);

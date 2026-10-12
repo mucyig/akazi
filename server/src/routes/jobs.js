@@ -106,6 +106,7 @@ router.get('/', optionalAuth, async (req, res) => {
        FROM jobs j JOIN employers e ON j.employer_id = e.id JOIN users u ON e.user_id = u.id
        WHERE ${where.join(' AND ')} ORDER BY j.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
     const total = result.rows[0]?.total_count || 0;
+    res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
     res.json({ jobs: result.rows.map(({ total_count, ...j }) => j), total, limit, offset });
   } catch (err) {
     console.error('Fetch jobs error:', err.message);
@@ -136,6 +137,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     }
     const count = await query('SELECT COUNT(*)::int AS n FROM applications WHERE job_id = $1', [jobId]);
     const { employer_user_id, employer_status, ...job } = row;
+    if (!req.user) res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
     res.json({ job: { ...job, ...(isOwner ? { employer_user_id } : {}), applicant_count: count.rows[0].n }, has_applied: !!application, application });
   } catch (err) {
     console.error('Get job details error:', err.message);

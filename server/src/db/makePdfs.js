@@ -101,3 +101,24 @@ createSimplePdf(
 );
 
 console.log('Authentic PDF verification records generated.');
+
+const storage = require('../lib/storage');
+async function syncToStorage() {
+  if (storage.mode === 's3') {
+    const files = [
+      { key: 'documents/serena_hotel_rdb_registration.pdf', p: path.join(root, 'documents', 'serena_hotel_rdb_registration.pdf') },
+      { key: 'documents/inyange_logistics_registration.pdf', p: path.join(root, 'documents', 'inyange_logistics_registration.pdf') },
+      { key: 'resumes/eric_manzi_cv.pdf', p: path.join(root, 'resumes', 'eric_manzi_cv.pdf') },
+    ];
+    for (const f of files) {
+      if (fs.existsSync(f.p)) {
+        try {
+          await storage.put(f.key, fs.readFileSync(f.p));
+        } catch (e) {
+          console.warn(`[Seed Storage] Failed uploading ${f.key}:`, e.message);
+        }
+      }
+    }
+  }
+}
+syncToStorage().catch(() => {});

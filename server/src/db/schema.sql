@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   actor_id INTEGER,
   action VARCHAR(60) NOT NULL,
   target_type VARCHAR(40),
-  target_id VARCHAR(60),
+  target_id VARCHAR(255),
   meta JSONB DEFAULT '{}'::jsonb,
   ip VARCHAR(64),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -147,14 +147,20 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(lower(email));
 CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role, status);
+CREATE INDEX IF NOT EXISTS idx_jobs_employer_id ON jobs(employer_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_active_created ON jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category);
 CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location);
 CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id);
 CREATE INDEX IF NOT EXISTS idx_applications_employee ON applications(employee_id);
+CREATE INDEX IF NOT EXISTS idx_applications_job_status ON applications(job_id, status);
+CREATE INDEX IF NOT EXISTS idx_applications_emp_status ON applications(employee_id, status);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_employer ON payments(employer_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, purpose);
 CREATE INDEX IF NOT EXISTS idx_chat_app ON chat_messages(application_id);
+CREATE INDEX IF NOT EXISTS idx_chat_app_created ON chat_messages(application_id, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
