@@ -12,10 +12,12 @@ import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatRelativeTime } from '../../utils/time';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export default function EmployerDashboard() {
   const { user, employer, isActiveEmployer } = useAuth();
   const { t, language } = useLanguage();
+  usePageTitle(t('nav.employerHub'));
   const navigate = useNavigate();
 
   const [jobs, setJobs] = useState([]);

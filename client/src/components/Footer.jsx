@@ -9,17 +9,17 @@ export default function Footer() {
       <div className="page py-12 grid gap-10 sm:grid-cols-[2fr_1fr_1fr_1fr]">
         <div>
           <p className="display text-3xl font-bold text-white">akazi</p>
-          <p className="mt-3 max-w-xs text-sm text-blue-200 leading-relaxed">{tr(tr("Work, found properly. Verified employers and real conversations, made in Kigali.", "Gushaka akazi neza. Abakoresha bemewe n’ibiganiro nyabyo, byakorewe i Kigali."), "Gushaka akazi neza. Abakoresha bemewe n’ibiganiro nyabyo, byakorewe i Kigali.")}</p>
+          <p className="mt-3 max-w-xs text-sm text-blue-200 leading-relaxed">{tr("Work, found properly. Verified employers and real conversations, made in Kigali.", "Gushaka akazi neza. Abakoresha bemewe n’ibiganiro nyabyo, byakorewe i Kigali.")}</p>
         </div>
         <div className="text-sm space-y-2">
-          <p className="eyebrow !text-amber-300">{tr(tr("Job seekers", "Abashaka akazi"), "Abashaka akazi")}</p>
-          <Link className="block hover:text-white" to="/jobs">{tr(tr("Browse jobs", "Reba imirimo"), "Reba imirimo")}</Link>
-          <Link className="block hover:text-white" to="/register?role=work">{tr(tr("Create profile", "Fungura konti"), "Fungura konti")}</Link>
+          <p className="eyebrow !text-amber-300">{tr("Job seekers", "Abashaka akazi")}</p>
+          <Link className="block hover:text-white" to="/jobs">{tr("Browse jobs", "Reba imirimo")}</Link>
+          <Link className="block hover:text-white" to="/register?role=work">{tr("Create profile", "Fungura konti")}</Link>
         </div>
         <div className="text-sm space-y-2">
-          <p className="eyebrow !text-amber-300">{tr(tr("Employers", "Abakoresha"), "Abakoresha")}</p>
-          <Link className="block hover:text-white" to="/register?role=hire">{tr(tr("Start hiring", "Tangira gushaka abakozi"), "Tangira gushaka abakozi")}</Link>
-          <Link className="block hover:text-white" to="/login">{tr(tr("Sign in", "Injira"), "Injira")}</Link>
+          <p className="eyebrow !text-amber-300">{tr("Employers", "Abakoresha")}</p>
+          <Link className="block hover:text-white" to="/register?role=hire">{tr("Start hiring", "Tangira gushaka abakozi")}</Link>
+          <Link className="block hover:text-white" to="/login">{tr("Sign in", "Injira")}</Link>
         </div>
         <div className="text-sm space-y-2">
           <p className="eyebrow !text-amber-300">{tr('Legal', 'Amategeko')}</p>

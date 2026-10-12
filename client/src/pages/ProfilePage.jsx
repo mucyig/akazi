@@ -15,14 +15,18 @@ import {
   ExternalLink,
   MapPin,
   Calendar,
-  GraduationCap
+  GraduationCap,
+  Globe
 } from 'lucide-react';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export default function ProfilePage() {
   const { user, employer, profile, logout, loading } = useAuth();
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const navigate = useNavigate();
+
+  usePageTitle(t('profile.title'));
 
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
@@ -162,6 +166,35 @@ export default function ProfilePage() {
 
         </div>
 
+
+        {/* Language Selection Card */}
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-900 grid place-items-center shrink-0">
+              <Globe className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-zinc-950 text-xs">{language === 'rw' ? 'Ururimi' : 'Language'}</p>
+              <p className="text-[11px] text-zinc-500">{language === 'rw' ? 'Hitamo ururimi wifuza gukoresha' : 'Choose your preferred language'}</p>
+            </div>
+          </div>
+          <div className="flex p-0.5 rounded-xl bg-zinc-100 border border-zinc-200 text-xs font-semibold self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setLanguage('en')}
+              className={`px-3.5 py-1.5 rounded-lg transition ${language === 'en' ? 'bg-white text-blue-950 shadow-xs font-bold' : 'text-zinc-600 hover:text-zinc-950'}`}
+            >
+              English
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage('rw')}
+              className={`px-3.5 py-1.5 rounded-lg transition ${language === 'rw' ? 'bg-white text-blue-950 shadow-xs font-bold' : 'text-zinc-600 hover:text-zinc-950'}`}
+            >
+              Kinyarwanda
+            </button>
+          </div>
+        </div>
 
         <ChangePasswordCard />
       </div>

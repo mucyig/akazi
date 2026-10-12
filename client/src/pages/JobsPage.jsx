@@ -4,6 +4,8 @@ import { Search, MapPin, ChevronDown, BadgeCheck, ArrowRight, X } from 'lucide-r
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import { formatRelativeTime } from '../utils/time';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { formatSalary } from '../utils/format';
 
 const GENERAL_RWANDA_JOB_TERMS = [
   'akazi mu rwanda', 'job in rwanda', 'jobs in rwanda',
@@ -21,6 +23,7 @@ function cleanSearchQuery(raw) {
 
 export default function JobsPage() {
   const { tr, language } = useLanguage();
+  usePageTitle(tr("Browse Jobs", "Reba Imirimo"));
   const [params] = useSearchParams();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,13 +139,35 @@ export default function JobsPage() {
         </div>
       </div>
 
-      <p className="mt-2 text-sm text-zinc-500" aria-live="polite">{loading ? tr('Loading…', 'Biraje…') : tr(`${total} position${total === 1 ? '' : 's'} at ${groups.length} verified employer${groups.length === 1 ? '' : 's'}`, `Imyanya ${total} ku bakoresha bemewe ${groups.length}`)}</p>
+      <p className="mt-2 text-sm text-zinc-500" aria-live="polite">
+        {loading
+          ? tr('Finding open positions…', 'Turimo gushaka imirimo…')
+          : tr(`${total} position${total === 1 ? '' : 's'} at ${groups.length} verified employer${groups.length === 1 ? '' : 's'}`, `Imyanya ${total} ku bakoresha bemewe ${groups.length}`)}
+      </p>
 
-      {failed && <p className="mt-8 p-4 rounded-xl bg-red-50 text-red-800 text-sm">{tr(tr("We couldn’t load jobs. Check your connection and refresh.", "Ntitwabashije gutanga imirimo. Reba murandasi maze usubiremo."), "Ntitwabashije gutanga imirimo. Reba murandasi maze usubiremo.")}</p>}
+      {/* Shimmer skeleton loaders */}
+      {loading && (
+        <div className="mt-4 space-y-3" aria-busy="true">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="bg-white border rule rounded-2xl p-5 animate-pulse">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-zinc-200 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-zinc-200 rounded w-1/3" />
+                  <div className="h-3 bg-zinc-100 rounded w-1/2" />
+                </div>
+                <div className="w-16 h-6 bg-zinc-100 rounded-full shrink-0" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {failed && <p className="mt-8 p-4 rounded-xl bg-red-50 text-red-800 text-sm">{tr("We couldn’t load jobs. Check your connection and refresh.", "Ntitwabashije gutanga imirimo. Reba murandasi maze usubiremo.")}</p>}
       {!loading && !failed && groups.length === 0 && (
         <div className="mt-10 py-14 text-center border rule rounded-2xl bg-white">
-          <p className="font-bold text-zinc-900">{tr(tr("No positions match your search", "Nta myanya ihuye n’ibyo washatse"), "Nta myanya ihuye n’ibyo washatse")}</p>
-          <button onClick={() => { setQ(''); setLoc('all'); }} className="mt-3 text-sm font-semibold text-blue-800 hover:underline">{tr(tr("Clear filters", "Siba ayo wahisemo"), "Siba ayo wahisemo")}</button>
+          <p className="font-bold text-zinc-900">{tr("No positions match your search", "Nta myanya ihuye n’ibyo washatse")}</p>
+          <button onClick={() => { setQ(''); setLoc('all'); }} className="mt-3 text-sm font-semibold text-blue-800 hover:underline">{tr("Clear filters", "Siba ayo wahisemo")}</button>
         </div>
       )}
 
@@ -157,7 +182,7 @@ export default function JobsPage() {
                 <span className="flex-1 min-w-0">
                   <span className="flex flex-wrap items-center gap-x-2">
                     <span className="font-bold text-zinc-950">{g.name}</span>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800"><BadgeCheck className="w-4 h-4" />{tr(tr("Verified", "Wemewe"), "Wemewe")}</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800"><BadgeCheck className="w-4 h-4" />{tr("Verified", "Wemewe")}</span>
                   </span>
                   <span className="block text-sm text-zinc-500 truncate">{[g.place, g.industry].filter(Boolean).join(' · ')}</span>
                 </span>
@@ -171,7 +196,7 @@ export default function JobsPage() {
                       <Link to={`/jobs/${j.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-blue-50/50 group">
                         <span className="flex-1 min-w-0">
                           <span className="block font-semibold text-zinc-900 group-hover:text-blue-800">{j.title}</span>
-                          <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, j.job_type, j.salary_range, formatRelativeTime(j.created_at, language)].filter(Boolean).join(' · ')}</span>
+                          <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, j.job_type, formatSalary(j.salary_range), formatRelativeTime(j.created_at, language)].filter(Boolean).join(' · ')}</span>
                         </span>
                         <span className="text-sm font-semibold text-blue-800 inline-flex items-center gap-1">{tr('View','Reba')} <ArrowRight className="w-4 h-4" /></span>
                       </Link>

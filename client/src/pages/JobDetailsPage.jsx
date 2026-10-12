@@ -12,12 +12,16 @@ import {
   Briefcase,
   AlertCircle,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Share2,
+  Check
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import ApplyModal from '../components/ApplyModal';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { formatSalary } from '../utils/format';
 
 export default function JobDetailsPage() {
   const { id } = useParams();
@@ -31,6 +35,31 @@ export default function JobDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  usePageTitle(job ? `${job.title} · ${job.company_name}` : (language === 'rw' ? 'Umurimo' : 'Job Details'));
+
+  const handleShare = async () => {
+    if (!job) return;
+    const shareData = {
+      title: `${job.title} · ${job.company_name} | Akazi`,
+      text: `${job.title} at ${job.company_name} - Akazi (Jobs in Rwanda)`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // Fallback to clipboard if share was cancelled or unavailable
+      }
+    }
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    }
+  };
 
   useEffect(() => {
     async function loadJob() {
@@ -150,14 +179,35 @@ export default function JobDetailsPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaJson) }} />
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
         
-        {/* Breadcrumb / Back Link */}
-        <Link 
-          to="/jobs" 
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 mb-6 transition"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{t('jobDetails.back')}</span>
-        </Link>
+        {/* Breadcrumb & Share Actions */}
+        <div className="flex items-center justify-between mb-5">
+          <Link 
+            to="/jobs" 
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-950 transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{t('jobDetails.back')}</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label={language === 'rw' ? 'Sangiza uyu murimo' : 'Share this job'}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 text-xs font-semibold text-zinc-700 transition active:scale-95 shadow-2xs"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700">{language === 'rw' ? 'Byakoporowe!' : 'Link copied!'}</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-zinc-500" />
+                <span>{language === 'rw' ? 'Sangiza' : 'Share'}</span>
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Document-style Card */}
         <article className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
@@ -241,7 +291,7 @@ export default function JobDetailsPage() {
               <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100">
                 <span className="text-zinc-400 block text-[11px] mb-1">{t('jobDetails.salary')}</span>
                 <span className="font-semibold text-zinc-900 text-sm">
-                  {job.salary_range || t('jobDetails.salaryNotSpecified')}
+                  {formatSalary(job.salary_range) || t('jobDetails.salaryNotSpecified')}
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100">

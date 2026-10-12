@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Briefcase, Building2, Upload } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const EDU = ['Primary', 'Secondary (O-Level)', 'A-Level / TVET', "Bachelor's degree", "Master's or higher"];
 const GENDER = ['Male', 'Female', 'Other / Prefer not to say'];
@@ -112,6 +113,7 @@ const EMPLOYER = [
 export default function RegisterPage() {
   const { registerEmployee, registerEmployer } = useAuth();
   const { language } = useLanguage();
+  usePageTitle(language === 'rw' ? 'Fungura Konti' : 'Create an Account');
   const L = language === 'rw' ? 'rw' : 'en';
   const x = (e) => (L === 'rw' && RW[e]) || e;
   const opt = (o) => (L === 'rw' && OPT_RW[o]) || o;

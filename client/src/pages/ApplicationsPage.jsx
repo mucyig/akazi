@@ -8,6 +8,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useNotifications } from '../context/NotificationContext';
 import InterviewLocation from '../components/InterviewLocation';
 import { formatDate, kigaliParts } from '../utils/time';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 const STATUS = {
   pending: { chip: 'bg-amber-50 text-amber-900 border-amber-200', icon: Clock3, iconCls: 'text-amber-600', rail: 'bg-amber-400' },
@@ -60,6 +61,7 @@ function InterviewTile({ app, interview, t }) {
 export default function ApplicationsPage() {
   const { user } = useAuth();
   const { t, tr } = useLanguage();
+  usePageTitle(t('applications.title'));
   const { markResultsSeen } = useNotifications();
   const navigate = useNavigate();
 

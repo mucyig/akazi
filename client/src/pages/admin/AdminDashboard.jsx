@@ -20,10 +20,12 @@ import {
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { t, language, tr} = useLanguage();
+  usePageTitle(tr("Admin Center", "Ubuyobozi Bukuru"));
 
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'employers' | 'jobs' | 'users'
   const [pendingEmployers, setPendingEmployers] = useState([]);

@@ -5,10 +5,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import AuthShell, { AuthCard, inputCls, primaryBtn } from '../../components/AuthShell';
 import PasswordField from '../../components/PasswordField';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const { t, tr } = useLanguage();
+  usePageTitle(t('auth.loginTitle'));
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requested = searchParams.get('redirect') || '/jobs';

@@ -5,10 +5,11 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { formatRelativeTime } from '../utils/time';
-
+import { usePageTitle } from '../hooks/usePageTitle';
 
 export default function HomePage() {
   const { tr, language } = useLanguage();
+  usePageTitle(tr("Verified Jobs in Rwanda", "Akazi kemejwe mu Rwanda"));
   const STEPS = [
     [tr("Create a profile", "Fungura konti yawe"), tr("Answer a few simple questions, one at a time. It takes about two minutes.", "Subiza ibibazo bike byoroshye, kimwe kimwe. Bifata iminota nka ibiri.")],
     [tr("Apply to verified employers", "Saba akazi ku bakoresha bemewe"), tr("Every company is checked by our team before it can post a single job.", "Buri kigo gisuzumwa n’itsinda ryacu mbere y’uko gishyiraho akazi.")],
@@ -95,10 +96,10 @@ export default function HomePage() {
       <section className="bg-white border-y rule">
         <div className="page py-14">
           <div className="flex items-end justify-between mb-6">
-            <h2 className="display text-3xl font-bold text-blue-950">{tr(tr("Latest openings", "Imyanya mishya"), "Imyanya mishya")}</h2>
+            <h2 className="display text-3xl font-bold text-blue-950">{tr("Latest openings", "Imyanya mishya")}</h2>
             <Link to="/jobs" className="text-sm font-semibold text-blue-800 inline-flex items-center gap-1 hover:underline">{tr('All jobs','Imirimo yose')} <ArrowRight className="w-4 h-4" /></Link>
           </div>
-          {jobs.length === 0 ? <p className="text-zinc-500">{tr(tr("No openings yet. Check back soon.", "Nta myanya ihari ubu. Ongera urebe vuba."), "Nta myanya ihari ubu. Ongera urebe vuba.")}</p> : (
+          {jobs.length === 0 ? <p className="text-zinc-500">{tr("No openings yet. Check back soon.", "Nta myanya ihari ubu. Ongera urebe vuba.")}</p> : (
             <ul className="border-t rule">
               {jobs.slice(0, 6).map((j) => (
                 <li key={j.id} className="border-b rule">
@@ -121,7 +122,7 @@ export default function HomePage() {
       </section>
 
       <section className="page py-16">
-        <p className="eyebrow">{tr(tr("How it works", "Uko bikora"), "Uko bikora")}</p>
+        <p className="eyebrow">{tr("How it works", "Uko bikora")}</p>
         <ol className="mt-6 grid md:grid-cols-3 gap-10">
           {STEPS.map(([t, d], i) => (
             <li key={t}>
@@ -136,8 +137,8 @@ export default function HomePage() {
       {!user && (
         <section className="page">
           <div className="rounded-3xl bg-blue-900 text-white p-8 sm:p-12 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <h2 className="display text-3xl font-bold max-w-md">{tr(tr("Hiring? Meet candidates who are ready to start.", "Urashaka abakozi? Menya abakandida biteguye gutangira."), "Urashaka abakozi? Menya abakandida biteguye gutangira.")}</h2>
-            <Link to="/register?role=hire" className="self-start px-6 py-3 rounded-full bg-amber-400 hover:bg-amber-300 text-blue-950 font-bold">{tr(tr("Start hiring", "Tangira gushaka abakozi"), "Tangira gushaka abakozi")}</Link>
+            <h2 className="display text-3xl font-bold max-w-md">{tr("Hiring? Meet candidates who are ready to start.", "Urashaka abakozi? Menya abakandida biteguye gutangira.")}</h2>
+            <Link to="/register?role=hire" className="self-start px-6 py-3 rounded-full bg-amber-400 hover:bg-amber-300 text-blue-950 font-bold">{tr("Start hiring", "Tangira gushaka abakozi")}</Link>
           </div>
         </section>
       )}
