@@ -258,29 +258,34 @@ export default function JobDetailsPage() {
                 </div>
               </div>
 
-              {/* Status Badge (only when applied or closed; top apply button removed) */}
-              {(hasApplied || job.is_expired || job.status !== 'active') && (
-                <div className="shrink-0 pt-2 sm:pt-0">
-                  {hasApplied ? (
-                    <div className="space-y-1.5 text-right sm:text-left">
-                      <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-zinc-900 text-white font-medium text-xs rounded-xl shadow-xs">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        <span>{t('jobDetails.alreadyApplied')}</span>
-                      </div>
-                      <Link
-                        to="/applications"
-                        className="block text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-2"
-                      >
-                        {t('jobDetails.viewApplicationStatus')}
-                      </Link>
+              {/* Primary Call to Action */}
+              <div className="shrink-0 pt-2 sm:pt-0">
+                {hasApplied ? (
+                  <div className="space-y-1.5 text-right sm:text-left">
+                    <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-zinc-900 text-white font-medium text-xs rounded-xl shadow-xs">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>{t('jobDetails.alreadyApplied')}</span>
                     </div>
-                  ) : (
-                    <span className="inline-flex items-center px-4 py-2 rounded-xl bg-zinc-100 text-zinc-600 text-xs font-semibold">
-                      {language === 'rw' ? 'Gusaba byarafunzwe' : 'Applications closed'}
-                    </span>
-                  )}
-                </div>
-              )}
+                    <Link
+                      to="/applications"
+                      className="block text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-2"
+                    >
+                      {t('jobDetails.viewApplicationStatus')}
+                    </Link>
+                  </div>
+                ) : (job.is_expired || job.status !== 'active') ? (
+                  <span className="inline-flex items-center px-4 py-2.5 rounded-xl bg-zinc-100 text-zinc-600 text-xs font-semibold">
+                    {language === 'rw' ? 'Gusaba byarafunzwe' : 'Applications closed'}
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleApplyClick}
+                    className="w-full sm:w-auto px-7 py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-semibold text-sm rounded-xl transition shadow-xs flex items-center justify-center gap-2 focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 active:scale-95"
+                  >
+                    <span>{t('jobDetails.applyButton')}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Quick Fact Grid */}
