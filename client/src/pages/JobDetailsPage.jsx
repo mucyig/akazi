@@ -1,5 +1,5 @@
 import { formatYmd, formatRelativeTime } from '../utils/time';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Building2, 
@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   ChevronRight,
   Share2,
-  Check
+  Check,
+  ArrowDown
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +37,8 @@ export default function JobDetailsPage() {
   const [error, setError] = useState('');
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [hasReadPage, setHasReadPage] = useState(false);
+  const bottomRef = useRef(null);
 
   usePageTitle(job ? `${job.title} · ${job.company_name}` : (language === 'rw' ? 'Umurimo' : 'Job Details'));
 
@@ -77,6 +80,40 @@ export default function JobDetailsPage() {
     }
     loadJob();
   }, [id]);
+
+  // Track if user has scrolled/read down through the job posting
+  useEffect(() => {
+    setHasReadPage(false);
+
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      if (scrollHeight <= 100 || scrollTop / scrollHeight >= 0.55) {
+        setHasReadPage(true);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasReadPage(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (bottomRef.current) {
+      observer.observe(bottomRef.current);
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [id, job]);
 
   const handleApplyClick = () => {
     if (!user) {
@@ -258,32 +295,29 @@ export default function JobDetailsPage() {
                 </div>
               </div>
 
-              {/* Primary Call to Action */}
-              <div className="shrink-0 pt-2 sm:pt-0">
-                {hasApplied ? (
-                  <div className="space-y-2 text-right sm:text-left">
-                    <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-zinc-900 text-white font-medium text-xs rounded-xl shadow-xs">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>{t('jobDetails.alreadyApplied')}</span>
+              {/* Status Badge (only when applied or closed; top apply button removed) */}
+              {(hasApplied || job.is_expired || job.status !== 'active') && (
+                <div className="shrink-0 pt-2 sm:pt-0">
+                  {hasApplied ? (
+                    <div className="space-y-1.5 text-right sm:text-left">
+                      <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-zinc-900 text-white font-medium text-xs rounded-xl shadow-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>{t('jobDetails.alreadyApplied')}</span>
+                      </div>
+                      <Link
+                        to="/applications"
+                        className="block text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-2"
+                      >
+                        {t('jobDetails.viewApplicationStatus')}
+                      </Link>
                     </div>
-                    <Link
-                      to="/applications"
-                      className="block text-xs text-zinc-500 hover:text-zinc-900 underline underline-offset-2"
-                    >
-                      {t('jobDetails.viewApplicationStatus')}
-                    </Link>
-                  </div>
-                ) : (job.is_expired || job.status !== 'active') ? (
-                  <span className="inline-flex items-center px-4 py-2.5 rounded-xl bg-zinc-100 text-zinc-600 text-xs font-semibold">{language === 'rw' ? 'Gusaba byarafunzwe' : 'Applications closed'}</span>
-                ) : (
-                  <button
-                    onClick={handleApplyClick}
-                    className="w-full sm:w-auto px-7 py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-semibold text-sm rounded-xl transition shadow-xs flex items-center justify-center gap-2 focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2"
-                  >
-                    <span>{t('jobDetails.applyButton')}</span>
-                  </button>
-                )}
-              </div>
+                  ) : (
+                    <span className="inline-flex items-center px-4 py-2 rounded-xl bg-zinc-100 text-zinc-600 text-xs font-semibold">
+                      {language === 'rw' ? 'Gusaba byarafunzwe' : 'Applications closed'}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Quick Fact Grid */}
@@ -387,21 +421,44 @@ export default function JobDetailsPage() {
               </div>
             </section>
 
-            {/* Bottom Apply Action */}
-            <div className="pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Bottom Apply Action (ref for scroll/reading completion) */}
+            <div ref={bottomRef} className="pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-zinc-500">
                 {!user ? t('jobDetails.signInToApply') : ''}
               </p>
               
               {!hasApplied && (job.is_expired || job.status !== 'active') ? (
-                <span className="inline-flex items-center px-4 py-2.5 rounded-xl bg-zinc-100 text-zinc-600 text-xs font-semibold">{language === 'rw' ? 'Gusaba byarafunzwe' : 'Applications closed'}</span>
+                <span className="inline-flex items-center px-4 py-2.5 rounded-xl bg-zinc-100 text-zinc-600 text-xs font-semibold">
+                  {language === 'rw' ? 'Gusaba byarafunzwe' : 'Applications closed'}
+                </span>
               ) : !hasApplied ? (
-                <button
-                  onClick={handleApplyClick}
-                  className="w-full sm:w-auto px-8 py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-semibold text-sm rounded-xl transition shadow-xs"
-                >
-                  {t('jobDetails.applyButton')}
-                </button>
+                <>
+                  {/* Desktop view: clean button always ready at the bottom */}
+                  <button
+                    onClick={handleApplyClick}
+                    className="hidden md:inline-flex items-center justify-center px-8 py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-semibold text-sm rounded-xl transition shadow-xs focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2"
+                  >
+                    <span>{t('jobDetails.applyButton')}</span>
+                  </button>
+
+                  {/* Mobile view: unlocked only after reading the whole page */}
+                  {hasReadPage ? (
+                    <button
+                      onClick={handleApplyClick}
+                      className="md:hidden w-full py-3.5 px-6 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition active:scale-95 anim-fade-up"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>{t('jobDetails.applyButton')}</span>
+                    </button>
+                  ) : (
+                    <div className="md:hidden w-full p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 text-center">
+                      <p className="text-xs text-zinc-600 font-medium flex items-center justify-center gap-1.5">
+                        <ArrowDown className="w-4 h-4 text-zinc-400 animate-bounce shrink-0" />
+                        <span>{language === 'rw' ? 'Manuka hasi usome amakuru yose kugira ngo usabe' : 'Scroll down to read all details to unlock application'}</span>
+                      </p>
+                    </div>
+                  )}
+                </>
               ) : (
                 <Link
                   to="/applications"
@@ -417,6 +474,30 @@ export default function JobDetailsPage() {
         </article>
 
       </div>
+
+      {/* Mobile-only floating Apply pill, active only once user has read the whole page */}
+      {hasReadPage && !hasApplied && !job.is_expired && job.status === 'active' && (
+        <aside
+          aria-label="Mobile apply action"
+          className="fixed bottom-16 inset-x-3 z-30 md:hidden anim-fade-up bg-white/95 backdrop-blur-md p-2.5 rounded-2xl border border-zinc-200 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-between gap-3"
+        >
+          <div className="min-w-0 pl-1.5">
+            <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              {language === 'rw' ? 'Ibisabwa byasomwe' : 'Details reviewed'}
+            </span>
+            <span className="block text-xs font-bold text-zinc-950 truncate max-w-[180px]">
+              {job.title}
+            </span>
+          </div>
+          <button
+            onClick={handleApplyClick}
+            className="px-5 py-2.5 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs shrink-0 transition active:scale-95 shadow-xs"
+          >
+            {t('jobDetails.applyButton')}
+          </button>
+        </aside>
+      )}
 
       {/* Dynamic Conversational Application Modal */}
       {applyModalOpen && (
