@@ -16,7 +16,7 @@ const prettyPhone = (p) => {
 
 export default function EmployerPayment() {
   const { employer, user, refreshUser } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [customPhone, setCustomPhone] = useState(null);
@@ -64,10 +64,27 @@ export default function EmployerPayment() {
   const pay = async () => {
     setError('');
     const digits = String(phone).replace(/\D/g, '');
-    if (!/^(\+?250|0)?7[2389]\d{7}$/.test(digits)) { setError(t('employerPayment.invalidNumber')); return; }
+    let local = digits;
+    if (digits.startsWith('2507') && digits.length === 12) {
+      local = '0' + digits.slice(3);
+    } else if (digits.startsWith('7') && digits.length === 9) {
+      local = '0' + digits;
+    }
+    if (local.length < 10) {
+      setError(language === 'rw' ? 'Nimero ya telefoni ntigomba kujya munsi y’imibare 10.' : 'Phone number cannot be fewer than 10 digits.');
+      return;
+    }
+    if (local.length > 10) {
+      setError(language === 'rw' ? 'Nimero ya telefoni ntigomba kurenza imibare 10.' : 'Phone number cannot exceed 10 digits.');
+      return;
+    }
+    if (!/^07[2389]\d{7}$/.test(local)) {
+      setError(language === 'rw' ? 'Nimero ya telefoni igomba gutangira na 07 (urugero 078XXXXXXX).' : 'Rwandan phone numbers must start with 07 (e.g. 078XXXXXXX).');
+      return;
+    }
     setSubmitting(true);
     try {
-      const res = await api.post('/payments/paypack/initiate', { phone });
+      const res = await api.post('/payments/paypack/initiate', { phone: local });
       if (res?.alreadyPaid) { setPhase('paid'); await refreshUser(); return; }
       setRef(res?.ref || null);
       setPhase('pending');
@@ -125,7 +142,11 @@ export default function EmployerPayment() {
               <div className="mt-3 flex items-center gap-2">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><Smartphone className="w-4 h-4" /></span>
-                  <input autoFocus value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="078 123 4567"
+                  <input autoFocus value={phone} maxLength={10} onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    const v = raw.startsWith('2507') && raw.length <= 12 ? ('0' + raw.slice(3)).slice(0, 10) : raw.slice(0, 10);
+                    setPhone(v);
+                  }} inputMode="tel" placeholder="078XXXXXXX"
                     className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-zinc-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none text-sm font-semibold tabular-nums" />
                 </div>
                 <button onClick={() => { setEditing(false); setError(''); }} className="px-3 py-2.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold">{t('employerPayment.save')}</button>

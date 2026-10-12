@@ -78,10 +78,44 @@ export default function ApplyModal({ job, onClose, onSuccess }) {
         setError(t('apply.errors.nameRequired'));
         return;
       }
-      if (!candidateInfo.phone.trim()) {
+      const nameParts = candidateInfo.fullName.trim().split(/\s+/).filter(Boolean);
+      if (nameParts.length < 2) {
+        setError(t('apply.errors.nameMinWords'));
+        return;
+      }
+      if (nameParts.some((p) => p.length < 2)) {
+        setError(language === 'rw' ? 'Buri zina rigomba kuba rigizwe nibura n’inyuguti 2.' : 'Each name must be at least 2 characters long.');
+        return;
+      }
+      if (!/^[a-zA-Z\u00C0-\u024F\s'-]+$/.test(candidateInfo.fullName.trim())) {
+        setError(t('apply.errors.nameInvalid'));
+        return;
+      }
+
+      const digits = candidateInfo.phone.replace(/\D/g, '');
+      let local = digits;
+      if (digits.startsWith('2507') && digits.length === 12) {
+        local = '0' + digits.slice(3);
+      } else if (digits.startsWith('7') && digits.length === 9) {
+        local = '0' + digits;
+      }
+      if (!local) {
         setError(t('apply.errors.phoneRequired'));
         return;
       }
+      if (local.length < 10) {
+        setError(t('apply.errors.phoneTooShort'));
+        return;
+      }
+      if (local.length > 10) {
+        setError(t('apply.errors.phoneTooLong'));
+        return;
+      }
+      if (!/^07[2389]\d{7}$/.test(local)) {
+        setError(t('apply.errors.phonePrefix'));
+        return;
+      }
+      setCandidateInfo((prev) => ({ ...prev, phone: local }));
       setStep(2);
     } else if (step === 2) {
       // Validate documents & questions
@@ -278,8 +312,13 @@ export default function ApplyModal({ job, onClose, onSuccess }) {
                       <input
                         type="tel"
                         value={candidateInfo.phone}
-                        onChange={(e) => setCandidateInfo({ ...candidateInfo, phone: e.target.value })}
-                        placeholder="078..."
+                        maxLength={10}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          const v = raw.startsWith('2507') && raw.length <= 12 ? ('0' + raw.slice(3)).slice(0, 10) : raw.slice(0, 10);
+                          setCandidateInfo({ ...candidateInfo, phone: v });
+                        }}
+                        placeholder="078XXXXXXX"
                         className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900 text-xs bg-zinc-50/50"
                         required
                       />

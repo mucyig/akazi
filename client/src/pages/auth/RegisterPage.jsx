@@ -25,10 +25,37 @@ const OPT_RW = {
   'Primary': 'Amashuri abanza', 'Secondary (O-Level)': 'Ayisumbuye (O-Level)', 'A-Level / TVET': 'A-Level / Imyuga (TVET)', "Bachelor's degree": 'Impamyabumenyi ya Kaminuza', "Master's or higher": 'Icyiciro cya gatatu cyangwa hejuru',
   'Technology': 'Ikoranabuhanga', 'Hospitality & Tourism': 'Amahoteli n’ubukerarugendo', 'Health': 'Ubuzima', 'Education': 'Uburezi', 'Agriculture': 'Ubuhinzi n’ubworozi', 'Finance': 'Imari', 'Construction': 'Ubwubatsi', 'Logistics': 'Ubwikorezi', 'Retail': 'Ubucuruzi', 'Other': 'Ibindi',
 };
+const validateFullName = (v) => {
+  const s = String(v || '').trim();
+  if (!s) return 'Please enter your full name.';
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return 'Please enter at least two names (e.g. first and last name).';
+  if (parts.some((p) => p.length < 2)) return 'Each name must be at least 2 characters long.';
+  if (!/^[a-zA-Z\u00C0-\u024F\s'-]+$/.test(s)) return 'Names can only contain letters, hyphens, and apostrophes.';
+  return true;
+};
+
+const validatePhoneRw = (v) => {
+  const s = String(v || '').trim();
+  if (!s) return 'Please enter your phone number.';
+  const digits = s.replace(/\D/g, '');
+  let local = digits;
+  if (digits.startsWith('2507') && digits.length === 12) {
+    local = '0' + digits.slice(3);
+  } else if (digits.startsWith('7') && digits.length === 9) {
+    local = '0' + digits;
+  }
+  if (local.length < 10) return 'Phone number cannot be fewer than 10 digits.';
+  if (local.length > 10) return 'Phone number cannot exceed 10 digits.';
+  if (!/^07[2389]\d{7}$/.test(local)) return 'Rwandan phone numbers must start with 07 (e.g. 078XXXXXXX).';
+  return true;
+};
+
 const RW = {
-  'e.g. Sarah Uwase': 'urugero: Sarah Uwase', 'you@example.com': 'wowe@urugero.com', '+250 7XX XXX XXX': '+250 7XX XXX XXX',
+  'e.g. Sarah Uwase': 'urugero: Sarah Uwase', 'you@example.com': 'wowe@urugero.com', '078XXXXXXX': '078XXXXXXX', '+250 7XX XXX XXX': '078XXXXXXX',
   'e.g. Kigali, Gasabo': 'urugero: Kigali, Gasabo', 'At least 8 characters': 'Nibura inyuguti 8', 'Use at least 8 characters.': 'Koresha nibura inyuguti 8.',
   'e.g. Apex Technologies Ltd': 'urugero: Apex Technologies Ltd', 'e.g. Nyarugenge, Kigali': 'urugero: Nyarugenge, Kigali', 'Full name': 'Amazina yombi',
+  'e.g. Jean Claude Mugabo': 'urugero: Jean Claude Mugabo',
   'hr@company.rw': 'abakozi@ikigo.rw', 'A short description…': 'Ubusobanuro bugufi…', 'We verify every employer before they can post jobs.': 'Dusuzuma buri mukoresha mbere y’uko ashyiraho akazi.',
   'Click to choose a file': 'Kanda uhitemo dosiye', 'max 10 MB': 'ntarengwa 10 MB', 'File is larger than 10 MB.': 'Dosiye irengeje 10 MB.',
   'Please answer this question to continue.': 'Subiza iki kibazo kugira ngo ukomeze.', 'Enter a valid email address.': 'Andika imeri yemewe.', 'Terms of Use': 'Amategeko yo gukoresha', 'Privacy Policy': 'Politiki y’ibanga', 'Please accept the Terms and Conditions.': 'Emera amategeko n’amabwiriza.',
@@ -44,27 +71,39 @@ const RW = {
   'I agree to the Akazi Terms and Conditions and confirm my details are accurate.': 'Nemeye amategeko n’amabwiriza ya Akazi kandi nemeza ko amakuru yanjye ari ukuri.',
   'Create my account': 'Fungura konti', 'Back': 'Subira inyuma', 'Skip': 'Simbuka', 'Next': 'Komeza', 'Sign in': 'Injira', 'Already have an account?': 'Usanzwe ufite konti?',
   'Almost done': 'Turarangiza', 'Upload': 'Shyiramo',
+  'Please enter your full name.': 'Nyamuneka andika amazina yawe yose.',
+  'Please enter at least two names (e.g. first and last name).': 'Nyamuneka andika nibura amazina abiri (urugero: izina ry’umuryango n’irindi).',
+  'Each name must be at least 2 characters long.': 'Buri zina rigomba kuba rigizwe nibura n’inyuguti 2.',
+  'Names can only contain letters, hyphens, and apostrophes.': 'Amazina agomba kuba agizwe n’inyuguti gusa.',
+  'Please enter your phone number.': 'Nyamuneka andika numero ya telefoni yawe.',
+  'Phone number cannot be fewer than 10 digits.': 'Nimero ya telefoni ntigomba kujya munsi y’imibare 10.',
+  'Phone number cannot exceed 10 digits.': 'Nimero ya telefoni ntigomba kurenza imibare 10.',
+  'Rwandan phone numbers must start with 07 (e.g. 078XXXXXXX).': 'Nimero ya telefoni igomba gutangira na 07 (urugero 078XXXXXXX).',
+  'Please enter a valid location (at least 3 characters).': 'Nyamuneka andika aho utuye neza (nibura inyuguti 3).',
+  'Company name must be at least 2 characters.': 'Izina ry’ikigo rigomba kuba rigizwe nibura n’inyuguti 2.',
+  'Please provide a description of at least 10 characters.': 'Nyamuneka tanga ubusobanuro bufite nibura inyuguti 10.',
+  'Use at least 8 characters with letters and numbers.': 'Koresha nibura inyuguti 8 zikubiyemo inyuguti n’imibare.',
 };
 const SEEKER = [
-  { key: 'name', q: { en: "What's your full name?", rw: 'Witwa nde mu mazina yombi?' }, type: 'text', ph: 'e.g. Sarah Uwase', req: true },
+  { key: 'name', q: { en: "What's your full name?", rw: 'Witwa nde mu mazina yombi?' }, type: 'text', ph: 'e.g. Sarah Uwase', req: true, check: validateFullName },
   { key: 'email', q: { en: "What's your email address?", rw: 'Imeri yawe ni iyihe?' }, type: 'email', ph: 'you@example.com', req: true },
-  { key: 'phone', q: { en: "What's your phone number?", rw: 'Nimero yawe ya telefoni ni iyihe?' }, type: 'tel', ph: '+250 7XX XXX XXX', req: true },
+  { key: 'phone', q: { en: "What's your phone number?", rw: 'Nimero yawe ya telefoni ni iyihe?' }, type: 'tel', ph: '078XXXXXXX', req: true, check: validatePhoneRw },
   { key: 'gender', q: { en: "What's your gender?", rw: 'Igitsina cyawe ni ikihe?' }, type: 'choice', options: GENDER, req: true },
   { key: 'date_of_birth', q: { en: 'When were you born?', rw: 'Wavutse ryari?' }, type: 'date', req: true },
-  { key: 'location', q: { en: 'Where do you live?', rw: 'Utuye he?' }, type: 'text', ph: 'e.g. Kigali, Gasabo', req: true },
+  { key: 'location', q: { en: 'Where do you live?', rw: 'Utuye he?' }, type: 'text', ph: 'e.g. Kigali, Gasabo', req: true, check: (v) => String(v || '').trim().length >= 3 || 'Please enter a valid location (at least 3 characters).' },
   { key: 'education_level', q: { en: "What's your highest education level?", rw: 'Ni ayahe mashuri wize cyane?' }, type: 'choice', options: EDU, req: true },
   { key: 'resume', q: { en: 'Do you have a CV? Upload it (optional).', rw: 'Ufite CV? Yishyiremo (si itegeko).' }, type: 'file', accept: '.pdf,.doc,.docx' },
   { key: 'password', q: { en: 'Create a password', rw: 'Hitamo ijambo ry’ibanga' }, type: 'password', ph: '8+ characters, letters and numbers', req: true, check: (v) => (v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v)) || 'Use at least 8 characters with letters and numbers.' },
 ];
 const EMPLOYER = [
-  { key: 'company_name', q: { en: "What's your company name?", rw: 'Ikigo cyanyu cyitwa iki?' }, type: 'text', ph: 'e.g. Apex Technologies Ltd', req: true },
+  { key: 'company_name', q: { en: "What's your company name?", rw: 'Ikigo cyanyu cyitwa iki?' }, type: 'text', ph: 'e.g. Apex Technologies Ltd', req: true, check: (v) => String(v || '').trim().length >= 2 || 'Company name must be at least 2 characters.' },
   { key: 'industry', q: { en: 'What industry are you in?', rw: 'Mukora mu rihe shami?' }, type: 'choice', options: INDUSTRY, req: true },
-  { key: 'location', q: { en: 'Where is your company located?', rw: 'Ikigo cyanyu giherereye he?' }, type: 'text', ph: 'e.g. Nyarugenge, Kigali', req: true },
-  { key: 'contact_person', q: { en: "What's your name (the contact person)?", rw: 'Witwa nde (ukuriye itumanaho)?' }, type: 'text', ph: 'Full name', req: true },
+  { key: 'location', q: { en: 'Where is your company located?', rw: 'Ikigo cyanyu giherereye he?' }, type: 'text', ph: 'e.g. Nyarugenge, Kigali', req: true, check: (v) => String(v || '').trim().length >= 3 || 'Please enter a valid location (at least 3 characters).' },
+  { key: 'contact_person', q: { en: "What's your name (the contact person)?", rw: 'Witwa nde (ukuriye itumanaho)?' }, type: 'text', ph: 'e.g. Jean Claude Mugabo', req: true, check: validateFullName },
   { key: 'date_of_birth', q: { en: "What's the contact person's date of birth?", rw: 'Uhagarariye ikigo yavukiye ryari?' }, type: 'date', req: true },
-  { key: 'phone', q: { en: "What's the company phone number?", rw: 'Nimero ya telefoni y’ikigo ni iyihe?' }, type: 'tel', ph: '+250 7XX XXX XXX', req: true },
+  { key: 'phone', q: { en: "What's the company phone number?", rw: 'Nimero ya telefoni y’ikigo ni iyihe?' }, type: 'tel', ph: '078XXXXXXX', req: true, check: validatePhoneRw },
   { key: 'email', q: { en: "What's your business email?", rw: 'Imeri y’ikigo ni iyihe?' }, type: 'email', ph: 'hr@company.rw', req: true },
-  { key: 'description', q: { en: 'Tell candidates what your company does.', rw: 'Bwira abakandida ibyo ikigo cyanyu gikora.' }, type: 'textarea', ph: 'A short description…', req: true },
+  { key: 'description', q: { en: 'Tell candidates what your company does.', rw: 'Bwira abakandida ibyo ikigo cyanyu gikora.' }, type: 'textarea', ph: 'A short description…', req: true, check: (v) => String(v || '').trim().length >= 10 || 'Please provide a description of at least 10 characters.' },
   { key: 'website', q: { en: 'Do you have a website? (optional)', rw: 'Mufite urubuga? (si itegeko)' }, type: 'url', ph: 'https://' },
   { key: 'registration_doc', q: { en: 'Upload your business registration document.', rw: 'Shyiramo icyemezo cy’iyandikisha ry’ikigo.' }, type: 'file', accept: '.pdf,.jpg,.jpeg,.png', req: true, hint: 'We verify every employer before they can post jobs.' },
   { key: 'password', q: { en: 'Create a password', rw: 'Hitamo ijambo ry’ibanga' }, type: 'password', ph: '8+ characters, letters and numbers', req: true, check: (v) => (v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v)) || 'Use at least 8 characters with letters and numbers.' },
@@ -182,7 +221,29 @@ export default function RegisterPage() {
               <>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 mb-6">{cur.q[L]}</h2>
                 {['text', 'email', 'tel', 'password', 'date', 'url'].includes(cur.type) && (
-                  <input ref={inputRef} type={cur.type} value={val} max={cur.type === 'date' ? getMaxBirthDate() : undefined} placeholder={x(cur.ph)} onChange={(e) => setField(e.target.value)} onKeyDown={onKey} className={field} autoComplete="off" />
+                  <input 
+                    ref={inputRef} 
+                    type={cur.type} 
+                    value={val} 
+                    max={cur.type === 'date' ? getMaxBirthDate() : undefined} 
+                    maxLength={cur.type === 'tel' ? 10 : cur.type === 'text' ? 120 : undefined}
+                    placeholder={x(cur.ph)} 
+                    onChange={(e) => {
+                      let v = e.target.value;
+                      if (cur.type === 'tel') {
+                        const raw = v.replace(/\D/g, '');
+                        if (raw.startsWith('2507') && raw.length <= 12) {
+                          v = ('0' + raw.slice(3)).slice(0, 10);
+                        } else {
+                          v = raw.slice(0, 10);
+                        }
+                      }
+                      setField(v);
+                    }} 
+                    onKeyDown={onKey} 
+                    className={field} 
+                    autoComplete="off" 
+                  />
                 )}
                 {cur.type === 'textarea' && (
                   <textarea ref={inputRef} rows={4} value={val} placeholder={x(cur.ph)} onChange={(e) => setField(e.target.value)} className="w-full text-lg border-2 border-zinc-300 rounded-xl p-4 focus:border-blue-600 focus:outline-none bg-white" />

@@ -38,10 +38,63 @@ function normalizeUrl(v) {
   } catch { return null; }
 }
 
-function checkPhone(v) {
+// Validates that a person provides at least two names (e.g. First and Last name).
+function checkFullName(name) {
+  if (name === undefined || name === null) return 'Full name is required.';
+  const cleaned = cleanStr(name, 120);
+  if (!cleaned) return 'Full name is required.';
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length < 2) {
+    return 'Please enter at least two names (e.g. first and last name).';
+  }
+  if (parts.some((p) => p.length < 2)) {
+    return 'Each name must be at least 2 characters long.';
+  }
+  if (!/^[a-zA-Z\u00C0-\u024F\s'-]+$/.test(cleaned)) {
+    return 'Names can only contain letters, hyphens, and apostrophes.';
+  }
+  return null;
+}
+
+// Normalizes Rwandan phone numbers to clean 10-digit local format: 07XXXXXXXX
+function normalizePhone(v) {
   const s = cleanStr(v, 30);
-  if (!s) return '';
-  return /^[+\d][\d\s()-]{6,28}$/.test(s) ? s : null;
+  if (!s) return null;
+  const digits = s.replace(/\D/g, '');
+  let local = digits;
+  if (/^2507\d{8}$/.test(digits)) {
+    local = '0' + digits.slice(3);
+  } else if (/^7\d{8}$/.test(digits)) {
+    local = '0' + digits;
+  }
+  return /^07[2389]\d{7}$/.test(local) ? local : null;
+}
+
+// Validates Rwandan phone numbers: must not exceed or go below 10 digits
+function validatePhone(v) {
+  const s = cleanStr(v, 30);
+  if (!s) return 'Phone number is required.';
+  const digits = s.replace(/\D/g, '');
+  let local = digits;
+  if (/^2507\d{8}$/.test(digits)) {
+    local = '0' + digits.slice(3);
+  } else if (/^7\d{8}$/.test(digits)) {
+    local = '0' + digits;
+  }
+  if (local.length < 10) {
+    return 'Phone number cannot be fewer than 10 digits.';
+  }
+  if (local.length > 10) {
+    return 'Phone number cannot exceed 10 digits.';
+  }
+  if (!/^07[2389]\d{7}$/.test(local)) {
+    return 'Please enter a valid Rwandan phone number starting with 07 (e.g. 078XXXXXXX).';
+  }
+  return null;
+}
+
+function checkPhone(v) {
+  return normalizePhone(v);
 }
 
 // Safe JSON parse that never throws
@@ -53,4 +106,16 @@ function safeJson(v, fallback) {
 
 const isPgUnique = (e) => e && e.code === '23505';
 
-module.exports = { cleanStr, checkEmail, checkPassword, checkEmailAndPassword, normalizeUrl, checkPhone, safeJson, isPgUnique };
+module.exports = { 
+  cleanStr, 
+  checkFullName,
+  checkEmail, 
+  checkPassword, 
+  checkEmailAndPassword, 
+  normalizeUrl, 
+  checkPhone, 
+  validatePhone, 
+  normalizePhone, 
+  safeJson, 
+  isPgUnique 
+};

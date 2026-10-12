@@ -4,7 +4,7 @@ const { query } = require('../db');
 const { authenticateToken, requireRole, requireActiveEmployer, requireVerifiedEmail } = require('../middleware/auth');
 const { upload, storeUpload } = require('../middleware/upload');
 const storage = require('../lib/storage');
-const { cleanStr, safeJson, isPgUnique } = require('../lib/validate');
+const { cleanStr, checkFullName, validatePhone, normalizePhone, safeJson, isPgUnique } = require('../lib/validate');
 const { kigaliToInstant, isValidYmd, formatKigali, TZ } = require('../lib/time');
 const { sendMailLater } = require('../lib/mailer');
 const { CLIENT_URL } = require('../lib/env');
@@ -50,6 +50,16 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
       const parsed = rawData === undefined || rawData === '' ? {} : safeJson(rawData, undefined);
       if (parsed === undefined) return res.status(400).json({ message: 'Your application answers are not valid.' });
       if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return res.status(400).json({ message: 'Your application answers are not valid.' });
+
+      if (parsed.candidate_name) {
+        const nameErr = checkFullName(parsed.candidate_name);
+        if (nameErr) return res.status(400).json({ message: `Full name: ${nameErr}` });
+      }
+      if (parsed.phone) {
+        const phoneErr = validatePhone(parsed.phone);
+        if (phoneErr) return res.status(400).json({ message: `Phone: ${phoneErr}` });
+        parsed.phone = normalizePhone(parsed.phone);
+      }
 
       const profile = (await query('SELECT gender, resume_url FROM job_seekers WHERE user_id = $1', [req.user.id])).rows[0] || {};
       // The gender chosen at registration is authoritative and cannot be altered on an application

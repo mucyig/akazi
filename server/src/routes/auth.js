@@ -8,7 +8,7 @@ const { generateToken, toPublicUser, authenticateToken } = require('../middlewar
 const { upload, storeUpload } = require('../middleware/upload');
 const storage = require('../lib/storage');
 const { ageOn, isValidYmd } = require('../lib/time');
-const { cleanStr, checkEmail, checkPassword, checkEmailAndPassword, normalizeUrl, checkPhone, isPgUnique } = require('../lib/validate');
+const { cleanStr, checkFullName, checkEmail, checkPassword, checkEmailAndPassword, normalizeUrl, checkPhone, validatePhone, normalizePhone, isPgUnique } = require('../lib/validate');
 const { createToken, consumeToken, recentTokenCount } = require('../lib/tokens');
 const { sendMailLater, link } = require('../lib/mailer');
 const { audit } = require('../lib/audit');
@@ -54,11 +54,12 @@ router.post('/register-employer', upload.fields([{ name: 'logo', maxCount: 1 }, 
     const company_name = cleanStr(b.company_name, 150);
     const bad = checkEmailAndPassword(email, b.password);
     if (bad) return res.status(400).json({ message: bad });
-    if (!company_name) return res.status(400).json({ message: 'Company name, business email, and password are required.' });
+    if (!company_name || company_name.length < 2) return res.status(400).json({ message: 'Company name must be at least 2 characters.' });
     if (!isValidYmd(b.date_of_birth) || ageOn(b.date_of_birth) < 18) return res.status(400).json({ message: 'You must be at least 18 years old to create an account.' });
     if (b.terms_accepted !== true && b.terms_accepted !== 'true') return res.status(400).json({ message: 'You must accept the Terms and Conditions to register.' });
-    const phone = checkPhone(b.phone);
-    if (phone === null) return res.status(400).json({ message: 'Please enter a valid phone number.' });
+    const phoneErr = validatePhone(b.phone);
+    if (phoneErr) return res.status(400).json({ message: phoneErr });
+    const phone = normalizePhone(b.phone);
     const website = normalizeUrl(b.website);
     if (website === null) return res.status(400).json({ message: 'Please enter a valid website address (for example https://example.rw).' });
 
@@ -71,6 +72,10 @@ router.post('/register-employer', upload.fields([{ name: 'logo', maxCount: 1 }, 
     if (req.files?.registration_doc?.[0]) { doc_key = await storeUpload(req.files.registration_doc[0], 'documents'); stored.push(doc_key); }
 
     const contact = cleanStr(b.contact_person, 120);
+    if (contact) {
+      const contactErr = checkFullName(contact);
+      if (contactErr) return res.status(400).json({ message: `Contact person: ${contactErr}` });
+    }
     const { user, employer } = await withTransaction(async (q) => {
       const u = await q(
         `INSERT INTO users (role, status, name, email, password_hash, phone, terms_accepted, password_changed_at)
@@ -115,11 +120,13 @@ router.post('/register-employee', upload.single('resume'), async (req, res) => {
     const name = cleanStr(b.name, 120);
     const bad = checkEmailAndPassword(email, b.password);
     if (bad) return res.status(400).json({ message: bad });
-    if (!name) return res.status(400).json({ message: 'Full name, email address, and password are required.' });
+    const nameErr = checkFullName(name);
+    if (nameErr) return res.status(400).json({ message: nameErr });
     if (!isValidYmd(b.date_of_birth) || ageOn(b.date_of_birth) < 18) return res.status(400).json({ message: 'You must be at least 18 years old to create an account.' });
     if (b.terms_accepted !== true && b.terms_accepted !== 'true') return res.status(400).json({ message: 'You must accept the Terms and Conditions to register.' });
-    const phone = checkPhone(b.phone);
-    if (phone === null) return res.status(400).json({ message: 'Please enter a valid phone number.' });
+    const phoneErr = validatePhone(b.phone);
+    if (phoneErr) return res.status(400).json({ message: phoneErr });
+    const phone = normalizePhone(b.phone);
     const g = cleanStr(b.gender, 40).toLowerCase();
     const gender = g === '' || g.startsWith('other') ? 'other' : g === 'male' ? 'male' : g === 'female' ? 'female' : null;
     if (!gender) return res.status(400).json({ message: 'Please choose a valid gender option.' });
