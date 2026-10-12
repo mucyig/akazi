@@ -20,7 +20,6 @@ const contentTypeFor = (key) => MIME[extOf(key)] || 'application/octet-stream';
 const dispositionFor = (key) => (['pdf', 'png', 'jpg', 'jpeg', 'webp'].includes(extOf(key)) ? 'inline' : 'attachment');
 
 const useR2 = Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
-if (!useR2 && isProd) { console.error('[Fatal] Cloudflare R2 is not configured.'); process.exit(1); }
 
 let s3 = null; let S3 = null; let presigner = null;
 if (useR2) {
@@ -33,7 +32,7 @@ if (useR2) {
   });
 } else {
   FOLDERS.forEach((d) => fs.mkdirSync(path.join(LOCAL_ROOT, d), { recursive: true }));
-  console.log('[Storage] Cloudflare R2 not configured: using the private local folder server/uploads (development only).');
+  console.log('[Storage] Cloudflare R2 not configured: using private local folder server/uploads' + (isProd ? ' (files will be ephemeral on Render until R2 is added).' : '.'));
 }
 
 // Old records store '/uploads/resumes/x.pdf'. Turn that (or a bare key) into a valid key, or null.

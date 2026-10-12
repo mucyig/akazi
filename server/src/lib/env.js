@@ -13,12 +13,20 @@ if (secret.length < 32 || KNOWN_BAD_SECRETS.some((s) => secret.toLowerCase().inc
 if (!process.env.DATABASE_URL) problems.push('DATABASE_URL is required (PostgreSQL connection string).');
 
 if (isProd) {
-  if (!process.env.CLIENT_URL || !/^https:\/\//.test(process.env.CLIENT_URL)) problems.push('CLIENT_URL must be your public https:// address in production.');
-  for (const k of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET']) {
-    if (!process.env[k]) problems.push(`${k} is required in production (documents are stored in Cloudflare R2).`);
+  if (!process.env.CLIENT_URL || !/^https:\/\//.test(process.env.CLIENT_URL)) {
+    // Default to Render URL if not explicitly provided
+    process.env.CLIENT_URL = process.env.CLIENT_URL || 'https://akazi-api.onrender.com';
   }
-  if (!process.env.RESEND_API_KEY) problems.push('RESEND_API_KEY is required in production (password reset emails).');
-  if (process.env.PAYPACK_CLIENT_ID && !process.env.PAYPACK_WEBHOOK_SECRET) problems.push('PAYPACK_WEBHOOK_SECRET is required when PayPack is configured.');
+  const r2Missing = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET'].filter(k => !process.env[k]);
+  if (r2Missing.length > 0) {
+    console.warn('[Storage:warn] Cloudflare R2 variables not set (' + r2Missing.join(', ') + '). Uploads stored in local server/uploads.');
+  }
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[Mail:warn] RESEND_API_KEY not configured. Outgoing emails will be logged only.');
+  }
+  if (process.env.PAYPACK_CLIENT_ID && !process.env.PAYPACK_WEBHOOK_SECRET) {
+    console.warn('[Payments:warn] PAYPACK_WEBHOOK_SECRET is not set. PayPack webhooks will be ignored.');
+  }
 }
 
 if (problems.length) {
