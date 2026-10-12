@@ -7,6 +7,7 @@ import { ChatProvider } from './context/ChatContext';
 import ChatDock from './components/ChatDock';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import MobileBottomNav from './components/MobileBottomNav';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -91,12 +92,13 @@ function AppLayout() {
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="min-h-screen flex flex-col text-zinc-900 font-sans selection:bg-blue-700 selection:text-white">
+    <div className="min-h-screen flex flex-col text-zinc-900 font-sans selection:bg-blue-700 selection:text-white pb-16 md:pb-0">
       <Navbar />
       <EmailVerifyBanner />
       <main className="flex-1"><Outlet /></main>
       <Footer />
       <ChatDock />
+      <MobileBottomNav />
     </div>
   );
 }

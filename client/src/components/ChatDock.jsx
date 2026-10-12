@@ -166,8 +166,8 @@ export default function ChatDock() {
   return (
     <>
       {!open && (
-        <button onClick={() => openChat()} aria-label={tr(tr("Open messages", "Fungura ubutumwa"), "Fungura ubutumwa")}
-          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 pl-4 pr-5 py-3 rounded-full bg-blue-700 text-white font-semibold text-sm shadow-lg hover:bg-blue-800 transition">
+        <button onClick={() => openChat()} aria-label={tr("Open messages", "Fungura ubutumwa")}
+          className="fixed bottom-20 right-4 md:bottom-5 md:right-5 z-40 flex items-center gap-2 pl-4 pr-5 py-3 rounded-full bg-blue-700 text-white font-semibold text-sm shadow-xl hover:bg-blue-800 transition shadow-blue-900/20 active:scale-95">
           <MessageCircle className="w-5 h-5" />{tr("Messages", "Ubutumwa")}
           {unreadTotal > 0 && <span className="ml-1 min-w-5 h-5 px-1.5 rounded-full bg-amber-400 text-zinc-900 text-[11px] font-bold grid place-items-center">{unreadTotal}</span>}
         </button>
