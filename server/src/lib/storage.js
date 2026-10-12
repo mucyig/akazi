@@ -19,20 +19,41 @@ const contentTypeFor = (key) => MIME[extOf(key)] || 'application/octet-stream';
 // PDFs and images open in the browser tab, everything else downloads
 const dispositionFor = (key) => (['pdf', 'png', 'jpg', 'jpeg', 'webp'].includes(extOf(key)) ? 'inline' : 'attachment');
 
-const useR2 = Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
+const bucket = process.env.B2_BUCKET || process.env.STORAGE_BUCKET || process.env.R2_BUCKET;
+const accessKeyId = process.env.B2_KEY_ID || process.env.B2_APPLICATION_KEY_ID || process.env.STORAGE_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID;
+const secretAccessKey = process.env.B2_APPLICATION_KEY || process.env.STORAGE_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY;
+let endpoint = process.env.B2_ENDPOINT || process.env.STORAGE_ENDPOINT || process.env.R2_ENDPOINT;
+
+if (!endpoint && process.env.R2_ACCOUNT_ID) {
+  endpoint = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+}
+
+if (endpoint && !/^https?:\/\//i.test(endpoint)) {
+  endpoint = `https://${endpoint}`;
+}
+
+let region = process.env.B2_REGION || process.env.STORAGE_REGION || 'auto';
+if (endpoint && region === 'auto') {
+  const match = endpoint.match(/s3\.([a-z0-9-]+)\.backblazeb2\.com/i);
+  if (match) region = match[1];
+}
+
+const useCloud = Boolean(bucket && accessKeyId && secretAccessKey && endpoint);
+const providerName = process.env.B2_BUCKET || process.env.B2_APPLICATION_KEY ? 'Backblaze B2' : (process.env.R2_BUCKET ? 'Cloudflare R2' : 'S3 Storage');
 
 let s3 = null; let S3 = null; let presigner = null;
-if (useR2) {
+if (useCloud) {
   S3 = require('@aws-sdk/client-s3');
   presigner = require('@aws-sdk/s3-request-presigner');
   s3 = new S3.S3Client({
-    region: 'auto',
-    endpoint: process.env.R2_ENDPOINT || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY },
+    region,
+    endpoint,
+    credentials: { accessKeyId, secretAccessKey },
   });
+  console.log(`[Storage] Connected to ${providerName} (bucket: ${bucket}, endpoint: ${endpoint}).`);
 } else {
   FOLDERS.forEach((d) => fs.mkdirSync(path.join(LOCAL_ROOT, d), { recursive: true }));
-  console.log('[Storage] Cloudflare R2 not configured: using private local folder server/uploads' + (isProd ? ' (files will be ephemeral on Render until R2 is added).' : '.'));
+  console.log('[Storage] Cloud storage not configured: using private local folder server/uploads' + (isProd ? ' (files will be ephemeral on Render until Backblaze B2 is added).' : '.'));
 }
 
 // Old records store '/uploads/resumes/x.pdf'. Turn that (or a bare key) into a valid key, or null.
@@ -53,9 +74,9 @@ const localPath = (key) => {
 
 async function put(key, buffer) {
   if (!KEY_RE.test(key)) throw new Error('Bad key');
-  if (useR2) {
+  if (useCloud) {
     await s3.send(new S3.PutObjectCommand({
-      Bucket: process.env.R2_BUCKET, Key: key, Body: buffer, ContentType: contentTypeFor(key), CacheControl: 'private, max-age=0',
+      Bucket: bucket, Key: key, Body: buffer, ContentType: contentTypeFor(key), CacheControl: 'private, max-age=0',
     }));
   } else {
     fs.writeFileSync(localPath(key), buffer);
@@ -66,15 +87,15 @@ async function remove(keys) {
   for (const key of [].concat(keys)) {
     if (!KEY_RE.test(key)) continue;
     try {
-      if (useR2) await s3.send(new S3.DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
+      if (useCloud) await s3.send(new S3.DeleteObjectCommand({ Bucket: bucket, Key: key }));
       else fs.rmSync(localPath(key), { force: true });
     } catch (e) { console.warn('[Storage] delete failed for', key, e.message); }
   }
 }
 
 async function getStream(key) {
-  if (useR2) {
-    const out = await s3.send(new S3.GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
+  if (useCloud) {
+    const out = await s3.send(new S3.GetObjectCommand({ Bucket: bucket, Key: key }));
     return { stream: out.Body instanceof Readable ? out.Body : Readable.fromWeb(out.Body), size: out.ContentLength };
   }
   const p = localPath(key);
@@ -82,7 +103,7 @@ async function getStream(key) {
   return { stream: fs.createReadStream(p), size: fs.statSync(p).size };
 }
 
-// Short-lived link to one file. R2: a presigned URL straight from Cloudflare. Local: a signed link to this server.
+// Short-lived link to one file. Presigned URL from Backblaze B2 / R2. Local: a signed link to this server.
 const LOCAL_SIG = crypto.createHash('sha256').update('file-link:' + JWT_SECRET).digest();
 const signLocal = (key, exp) => crypto.createHmac('sha256', LOCAL_SIG).update(`${key}|${exp}`).digest('hex');
 function verifyLocalSignature(key, exp, sig) {
@@ -93,11 +114,11 @@ function verifyLocalSignature(key, exp, sig) {
 
 async function getDownloadUrl(key, { expiresIn = 300 } = {}) {
   const filename = key.split('/').pop();
-  if (useR2) {
+  if (useCloud) {
     const url = await presigner.getSignedUrl(
       s3,
       new S3.GetObjectCommand({
-        Bucket: process.env.R2_BUCKET, Key: key,
+        Bucket: bucket, Key: key,
         ResponseContentType: contentTypeFor(key),
         ResponseContentDisposition: `${dispositionFor(key)}; filename="${filename}"`,
       }),
@@ -109,4 +130,4 @@ async function getDownloadUrl(key, { expiresIn = 300 } = {}) {
   return `/api/files/local?${new URLSearchParams({ key, exp: String(exp), sig: signLocal(key, exp) })}`;
 }
 
-module.exports = { mode: useR2 ? 'r2' : 'local', FOLDERS, LOCAL_ROOT, KEY_RE, normalizeKey, keyVariants, newKey, put, remove, getStream, getDownloadUrl, verifyLocalSignature, contentTypeFor, dispositionFor, extOf };
+module.exports = { mode: useCloud ? 's3' : 'local', FOLDERS, LOCAL_ROOT, KEY_RE, normalizeKey, keyVariants, newKey, put, remove, getStream, getDownloadUrl, verifyLocalSignature, contentTypeFor, dispositionFor, extOf };

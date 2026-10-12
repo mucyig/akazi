@@ -17,9 +17,10 @@ if (isProd) {
     // Default to Render URL if not explicitly provided
     process.env.CLIENT_URL = process.env.CLIENT_URL || 'https://akazi-api.onrender.com';
   }
-  const r2Missing = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET'].filter(k => !process.env[k]);
-  if (r2Missing.length > 0) {
-    console.warn('[Storage:warn] Cloudflare R2 variables not set (' + r2Missing.join(', ') + '). Uploads stored in local server/uploads.');
+  const hasB2 = Boolean(process.env.B2_BUCKET && (process.env.B2_KEY_ID || process.env.B2_APPLICATION_KEY_ID) && process.env.B2_APPLICATION_KEY);
+  const hasR2 = Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
+  if (!hasB2 && !hasR2) {
+    console.warn('[Storage:warn] Cloud storage not configured (Backblaze B2 or Cloudflare R2). Uploads will be stored locally in server/uploads.');
   }
   if (!process.env.RESEND_API_KEY) {
     console.warn('[Mail:warn] RESEND_API_KEY not configured. Outgoing emails will be logged only.');

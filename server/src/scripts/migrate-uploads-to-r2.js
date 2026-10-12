@@ -18,7 +18,7 @@ function* walk(dir) {
 }
 
 (async () => {
-  if (storage.mode !== 'r2') { console.error('R2 is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET in server/.env first.'); process.exit(1); }
+  if (storage.mode === 'local') { console.error('Cloud storage is not configured. Set Backblaze B2 (B2_*) or Cloudflare R2 (R2_*) credentials in server/.env first.'); process.exit(1); }
   await initDb();
   let n = 0;
   for (const file of walk(storage.LOCAL_ROOT)) {
