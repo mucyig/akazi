@@ -70,3 +70,46 @@ export function kigaliParts(v) {
   const p = Object.fromEntries(fmt({ weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d).map((x) => [x.type, x.value]));
   return { weekday: p.weekday, day: p.day, month: p.month, time: `${p.hour}:${p.minute}` };
 }
+
+// Relative time formatted cleanly in Kinyarwanda or English (e.g. "Iminsi 2 ishize" / "2 days ago")
+export function formatRelativeTime(v, lang = 'en') {
+  const d = toDate(v);
+  if (!valid(d)) return '';
+  const diffMs = Math.max(0, nowMs() - d.getTime());
+  const minutes = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days = Math.floor(diffMs / 86400000);
+
+  const isRw = lang === 'rw';
+
+  if (minutes < 2) {
+    return isRw ? 'Ubu nyine' : 'Just now';
+  }
+  if (minutes < 60) {
+    return isRw ? `Iminota ${minutes} ishize` : `${minutes}m ago`;
+  }
+  if (hours < 24) {
+    if (hours === 1) return isRw ? 'Isaha 1 ishize' : '1 hour ago';
+    return isRw ? `Amasaha ${hours} ashize` : `${hours} hours ago`;
+  }
+  if (days < 7) {
+    if (days === 1) return isRw ? 'Umunsi 1 ushize' : '1 day ago';
+    return isRw ? `Iminsi ${days} ishize` : `${days} days ago`;
+  }
+
+  const weeks = Math.floor(days / 7);
+  if (days < 30) {
+    if (weeks === 1) return isRw ? 'Icyumweru 1 gishize' : '1 week ago';
+    return isRw ? `Ibyumweru ${weeks} bishize` : `${weeks} weeks ago`;
+  }
+
+  const months = Math.floor(days / 30);
+  if (days < 365) {
+    if (months <= 1) return isRw ? 'Ukwezi 1 gushize' : '1 month ago';
+    return isRw ? `Amezi ${months} ashize` : `${months} months ago`;
+  }
+
+  const years = Math.floor(days / 365);
+  if (years <= 1) return isRw ? 'Umwaka 1 ushize' : '1 year ago';
+  return isRw ? `Imyaka ${years} ishize` : `${years} years ago`;
+}

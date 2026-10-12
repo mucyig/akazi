@@ -1,4 +1,4 @@
-import { formatYmd } from '../utils/time';
+import { formatYmd, formatRelativeTime } from '../utils/time';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
@@ -196,6 +196,15 @@ export default function JobDetailsPage() {
                       <span className="text-zinc-600">{job.category}</span>
                     </>
                   )}
+                  {job.created_at && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1 text-zinc-500">
+                        <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                        {formatRelativeTime(job.created_at, language)}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -228,7 +237,7 @@ export default function JobDetailsPage() {
             </div>
 
             {/* Quick Fact Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-8 pt-6 border-t border-zinc-100 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-zinc-100 text-xs">
               <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100">
                 <span className="text-zinc-400 block text-[11px] mb-1">{t('jobDetails.salary')}</span>
                 <span className="font-semibold text-zinc-900 text-sm">
@@ -241,7 +250,13 @@ export default function JobDetailsPage() {
                   {job.job_type}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100 col-span-2 sm:col-span-1">
+              <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100">
+                <span className="text-zinc-400 block text-[11px] mb-1">{language === 'rw' ? 'Byashyizweho' : 'Posted'}</span>
+                <span className="font-semibold text-zinc-900 text-sm">
+                  {job.created_at ? formatRelativeTime(job.created_at, language) : '—'}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100">
                 <span className="text-zinc-400 block text-[11px] mb-1">{t('jobDetails.deadline')}</span>
                 <span className="font-semibold text-zinc-900 text-sm">
                   {job.deadline ? formatYmd(job.deadline) : t('jobDetails.deadlineNotSpecified')}

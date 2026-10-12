@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Search, MapPin, ChevronDown, BadgeCheck, ArrowRight, X } from 'lucide-react';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { formatRelativeTime } from '../utils/time';
 
 const GENERAL_RWANDA_JOB_TERMS = [
   'akazi mu rwanda', 'job in rwanda', 'jobs in rwanda',
@@ -19,7 +20,7 @@ function cleanSearchQuery(raw) {
 }
 
 export default function JobsPage() {
-  const { tr } = useLanguage();
+  const { tr, language } = useLanguage();
   const [params] = useSearchParams();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -170,7 +171,7 @@ export default function JobsPage() {
                       <Link to={`/jobs/${j.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-blue-50/50 group">
                         <span className="flex-1 min-w-0">
                           <span className="block font-semibold text-zinc-900 group-hover:text-blue-800">{j.title}</span>
-                          <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, j.job_type, j.salary_range].filter(Boolean).join(' · ')}</span>
+                          <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, j.job_type, j.salary_range, formatRelativeTime(j.created_at, language)].filter(Boolean).join(' · ')}</span>
                         </span>
                         <span className="text-sm font-semibold text-blue-800 inline-flex items-center gap-1">{tr('View','Reba')} <ArrowRight className="w-4 h-4" /></span>
                       </Link>

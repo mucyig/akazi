@@ -4,10 +4,11 @@ import { Search, ArrowRight, MapPin } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { formatRelativeTime } from '../utils/time';
 
 
 export default function HomePage() {
-  const { tr } = useLanguage();
+  const { tr, language } = useLanguage();
   const STEPS = [
     [tr("Create a profile", "Fungura konti yawe"), tr("Answer a few simple questions, one at a time. It takes about two minutes.", "Subiza ibibazo bike byoroshye, kimwe kimwe. Bifata iminota nka ibiri.")],
     [tr("Apply to verified employers", "Saba akazi ku bakoresha bemewe"), tr("Every company is checked by our team before it can post a single job.", "Buri kigo gisuzumwa n’itsinda ryacu mbere y’uko gishyiraho akazi.")],
@@ -104,8 +105,13 @@ export default function HomePage() {
                   <Link to={`/jobs/${j.id}`} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-6 py-4 group">
                     <span className="flex-1 font-bold text-zinc-950 group-hover:text-blue-800">{j.title}</span>
                     <span className="text-sm text-zinc-600 sm:w-56 truncate">{j.company_name}</span>
-                    <span className="text-sm text-zinc-500 inline-flex items-center gap-1 sm:w-44"><MapPin className="w-3.5 h-3.5" />{j.location}</span>
-                    <ArrowRight className="hidden sm:block w-4 h-4 text-zinc-400 group-hover:text-blue-800" />
+                    <span className="text-sm text-zinc-500 inline-flex items-center gap-1 sm:w-44 truncate"><MapPin className="w-3.5 h-3.5 shrink-0" />{j.location}</span>
+                    {j.created_at && (
+                      <span className="text-xs text-zinc-400 sm:w-28 text-left sm:text-right shrink-0">
+                        {formatRelativeTime(j.created_at, language)}
+                      </span>
+                    )}
+                    <ArrowRight className="hidden sm:block w-4 h-4 text-zinc-400 group-hover:text-blue-800 shrink-0" />
                   </Link>
                 </li>
               ))}

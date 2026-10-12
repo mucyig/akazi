@@ -11,10 +11,11 @@ import {
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { formatRelativeTime } from '../../utils/time';
 
 export default function EmployerDashboard() {
   const { user, employer, isActiveEmployer } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [jobs, setJobs] = useState([]);
@@ -142,6 +143,12 @@ export default function EmployerDashboard() {
                       <span className="font-semibold text-zinc-800">
                         {t('employerWorkspace.applicantsCount', { count: job.applicant_count || 0 })}
                       </span>
+                      {job.created_at && (
+                        <>
+                          <span>•</span>
+                          <span>{formatRelativeTime(job.created_at, language)}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
