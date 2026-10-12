@@ -1,0 +1,21 @@
+{
+  "name": "akazi",
+  "version": "1.0.0",
+  "description": "Akazi - Job Platform Connecting Employers and Job Seekers",
+  "scripts": {
+    "server": "node server/src/index.js",
+    "client": "npm --prefix client run dev",
+    "seed": "npm --prefix server run seed --",
+    "build": "npm --prefix client run build",
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "start": "node server/src/index.js",
+    "dev:server": "node server/src/index.js",
+    "dev:client": "npm --prefix client run dev",
+    "create-admin": "npm --prefix server run create-admin",
+    "migrate-uploads": "npm --prefix server run migrate-uploads --",
+    "test": "npm --prefix server test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.147.0"
+  }
+}

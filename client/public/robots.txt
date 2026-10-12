@@ -1,0 +1,15 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /jobs
+Allow: /jobs/*
+
+# Private authenticated areas
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /employer/*
+Disallow: /profile
+Disallow: /applications
+Disallow: /api/
+
+Sitemap: https://akazi.rw/sitemap.xml
