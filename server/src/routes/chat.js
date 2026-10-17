@@ -33,7 +33,7 @@ function describe(a, me, msgs) {
   const isEmployer = Number(a.employer_user_id) === me.id;
   const otherId = isEmployer ? Number(a.employee_id) : Number(a.employer_user_id);
   const employerStarted = msgs.some((m) => m.sender_id === Number(a.employer_user_id));
-  const approved = a.status === 'approved';
+  const approved = ['approved', 'interview', 'shortlisted', 'hired'].includes(a.status);
   const last = msgs[msgs.length - 1] || null;
   return {
     application_id: a.id, job_title: a.job_title, status: a.status, my_role: isEmployer ? 'employer' : 'employee',

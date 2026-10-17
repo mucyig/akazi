@@ -28,8 +28,11 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       const all = appsRes.rows;
       metrics = {
         totalApplicants: all.length,
-        pendingApplicants: all.filter((a) => a.status === 'pending').length,
-        scheduledInterviews: all.filter((a) => a.status === 'approved').length,
+        pendingApplicants: all.filter((a) => a.status === 'pending' || a.status === 'applied').length,
+        viewedApplicants: all.filter((a) => a.status === 'viewed').length,
+        shortlistedApplicants: all.filter((a) => a.status === 'shortlisted').length,
+        scheduledInterviews: all.filter((a) => a.status === 'approved' || a.status === 'interview').length,
+        hiredApplicants: all.filter((a) => a.status === 'hired').length,
         rejectedApplicants: all.filter((a) => a.status === 'rejected').length,
       };
       recentApplicants = all.slice(0, 5);
@@ -53,8 +56,10 @@ router.get('/my-jobs', authenticateToken, async (req, res) => {
     const result = await query(
       `SELECT j.*,
               (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id) AS applicant_count,
-              (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id AND status = 'pending') AS pending_count,
-              (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id AND status = 'approved') AS approved_count
+              (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id AND status IN ('pending', 'applied')) AS pending_count,
+              (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id AND status = 'shortlisted') AS shortlisted_count,
+              (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id AND status IN ('approved', 'interview')) AS approved_count,
+              (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id AND status = 'hired') AS hired_count
        FROM jobs j WHERE j.employer_id = $1 ORDER BY j.created_at DESC`, [empRes.rows[0].id]);
     res.json({ jobs: result.rows });
   } catch (err) {

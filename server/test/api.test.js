@@ -70,7 +70,7 @@ test('registration validates input and creates accounts', async () => {
 
   for (const who of ['alice', 'bob']) {
     const f = new FormData();
-    Object.entries({ name: `${who} Tester`, email: email(who), password: PASS, date_of_birth: '1995-05-05', gender: 'female', terms_accepted: 'true' }).forEach(([k, v]) => f.append(k, v));
+    Object.entries({ name: `${who} Tester`, email: email(who), password: PASS, phone: '0788123456', date_of_birth: '1995-05-05', gender: 'female', terms_accepted: 'true' }).forEach(([k, v]) => f.append(k, v));
     f.append('resume', PDF(), 'cv.pdf');
     const r = await call('POST', '/api/auth/register-employee', { form: f });
     assert.equal(r.status, 201, JSON.stringify(r.data));
@@ -81,11 +81,11 @@ test('registration validates input and creates accounts', async () => {
   assert.ok(ctx.alice.profile.resume_url.startsWith('resumes/'), 'stores a key, not a public path');
 
   const dup = new FormData();
-  Object.entries({ name: 'Dup', email: email('alice').toUpperCase(), password: PASS, date_of_birth: '1995-05-05', terms_accepted: 'true' }).forEach(([k, v]) => dup.append(k, v));
+  Object.entries({ name: 'Dup User', email: email('alice').toUpperCase(), phone: '0788123456', password: PASS, date_of_birth: '1995-05-05', terms_accepted: 'true' }).forEach(([k, v]) => dup.append(k, v));
   assert.equal((await call('POST', '/api/auth/register-employee', { form: dup })).status, 409);
 
   const fake = new FormData();
-  Object.entries({ name: 'Fake', email: email('fake'), password: PASS, date_of_birth: '1995-05-05', terms_accepted: 'true' }).forEach(([k, v]) => fake.append(k, v));
+  Object.entries({ name: 'Fake', email: email('fake'), phone: '0788123456', password: PASS, date_of_birth: '1995-05-05', terms_accepted: 'true' }).forEach(([k, v]) => fake.append(k, v));
   fake.append('resume', new Blob(['this is not a pdf at all, just text']), 'cv.pdf');
   assert.equal((await call('POST', '/api/auth/register-employee', { form: fake })).status, 400, 'renamed text file must be rejected');
 });
@@ -127,7 +127,7 @@ test('forgot/reset password: generic answers, single use, old sessions die', asy
 
 test('account locks after repeated wrong passwords', async () => {
   const f = new FormData();
-  Object.entries({ name: 'Lock Me', email: email('lock'), password: PASS, date_of_birth: '1995-05-05', terms_accepted: 'true' }).forEach(([k, v]) => f.append(k, v));
+  Object.entries({ name: 'Lock Me', email: email('lock'), phone: '0788123456', password: PASS, date_of_birth: '1995-05-05', terms_accepted: 'true' }).forEach(([k, v]) => f.append(k, v));
   assert.equal((await call('POST', '/api/auth/register-employee', { form: f })).status, 201);
   for (let i = 0; i < 5; i += 1) assert.equal((await login(email('lock'), 'WrongPass123')).status, 401);
   const locked = await login(email('lock'), PASS);
@@ -140,7 +140,7 @@ test('employer registration, approval, and job lifecycle', async () => {
   assert.equal((await call('POST', '/api/auth/register-employer', { form: f })).status, 400, 'javascript: website rejected');
 
   const g = new FormData();
-  Object.entries({ company_name: 'Test Hotel', contact_person: 'Boss Man', email: email('boss'), password: PASS, date_of_birth: '1985-01-01', website: 'testhotel.rw', terms_accepted: 'true' }).forEach(([k, v]) => g.append(k, v));
+  Object.entries({ company_name: 'Test Hotel', contact_person: 'Boss Man', phone: '0788123456', email: email('boss'), password: PASS, date_of_birth: '1985-01-01', website: 'testhotel.rw', terms_accepted: 'true' }).forEach(([k, v]) => g.append(k, v));
   g.append('registration_doc', PDF(), 'rdb.pdf');
   const reg = await call('POST', '/api/auth/register-employer', { form: g });
   assert.equal(reg.status, 201, JSON.stringify(reg.data));
@@ -220,10 +220,14 @@ test('applications, private files and result notifications', async () => {
   assert.equal((await open(ctx.admin.token, ctx.boss.employer.registration_doc_url)).status, 200, 'admin can');
   assert.equal((await open(ctx.boss.token, '../../etc/passwd')).status, 400, 'path tricks refused');
   const link = await open(ctx.alice.token, resumeKey);
-  const raw = await fetch(base + link.data.url);
+  const fileUrl = link.data.url.startsWith('http') ? link.data.url : base + link.data.url;
+  const raw = await fetch(fileUrl);
   assert.equal(raw.status, 200);
   assert.equal(raw.headers.get('content-type'), 'application/pdf');
-  const forged = await fetch(base + link.data.url.replace(/sig=[a-f0-9]+/, 'sig=' + '0'.repeat(64)));
+  const forgedUrl = link.data.url.startsWith('http')
+    ? link.data.url.replace(/X-Amz-Signature=[a-f0-9]+/, 'X-Amz-Signature=' + '0'.repeat(64))
+    : base + link.data.url.replace(/sig=[a-f0-9]+/, 'sig=' + '0'.repeat(64));
+  const forged = await fetch(forgedUrl);
   assert.equal(forged.status, 403, 'tampered link refused');
   const pub = await fetch(base + '/uploads/' + resumeKey);
   assert.ok(!/pdf/.test(pub.headers.get('content-type') || ''), 'no public /uploads any more');
@@ -276,7 +280,7 @@ test('deadline is enforced using Rwanda dates', async () => {
   assert.ok(!list.data.jobs.some((j) => j.id === ctx.job.id), 'expired job hidden from search');
   const f = new FormData(); f.append('job_id', String(ctx.job.id));
   const carol = new FormData();
-  Object.entries({ name: 'Carol', email: email('carol'), password: PASS, date_of_birth: '1995-05-05', terms_accepted: 'true' }).forEach(([k, v]) => carol.append(k, v));
+  Object.entries({ name: 'Carol User', email: email('carol'), phone: '0788123456', password: PASS, date_of_birth: '1995-05-05', gender: 'female', terms_accepted: 'true' }).forEach(([k, v]) => carol.append(k, v));
   const c = (await call('POST', '/api/auth/register-employee', { form: carol })).data;
   assert.equal((await call('POST', '/api/applications', { token: c.token, form: f })).status, 404, 'cannot apply after the deadline');
   await query('UPDATE jobs SET deadline = $1 WHERE id = $2', [todayKigali(), ctx.job.id]);
