@@ -195,7 +195,7 @@ export function MessageButton({ appId, status }) {
   const { tr } = useLanguage();
   const { openChat } = useChat();
   const isEmployer = useAuth().user?.role === "employer";
-  if (!['approved', 'interview', 'shortlisted', 'hired'].includes(status)) return null;
+  if (status !== 'approved') return null;
   return (
     <button onClick={() => openChat(appId)} className="mt-3 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">
       <MessageCircle className="w-4 h-4" />{isEmployer ? tr("Message candidate", "Andikira umukandida") : tr("Open chat", "Fungura ikiganiro")}

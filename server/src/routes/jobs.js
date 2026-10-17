@@ -132,7 +132,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
     let application = null;
     if (req.user && req.user.role === 'employee') {
-      const a = await query('SELECT id, status, created_at, viewed_at, shortlisted_at, interview_details, interview_at, decision_at, decision_notes, rejection_reason FROM applications WHERE job_id = $1 AND employee_id = $2', [jobId, req.user.id]);
+      const a = await query('SELECT id, status, created_at, interview_details, interview_at, rejection_reason FROM applications WHERE job_id = $1 AND employee_id = $2', [jobId, req.user.id]);
       application = a.rows[0] || null;
     }
     const count = await query('SELECT COUNT(*)::int AS n FROM applications WHERE job_id = $1', [jobId]);

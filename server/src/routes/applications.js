@@ -12,9 +12,6 @@ const { audit } = require('../lib/audit');
 
 const MAX_ANSWER_JSON = 30 * 1024;
 
-const notify = (uid, title, message, type, link) =>
-  query('INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1,$2,$3,$4,$5)', [uid, title, message, type, link]).catch(() => {});
-
 // A short, private email: the details stay inside the app
 function emailCandidateResult(candidateId, title, intro) {
   query('SELECT email, name FROM users WHERE id = $1', [candidateId]).then((r) => {
@@ -83,6 +80,8 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
          VALUES ($1,$2,$3,$4,$5,'pending') RETURNING *`,
         [jobId, req.user.id, JSON.stringify(parsed), JSON.stringify(uploaded), resume]);
 
+      const notify = (uid, title, message, type, link) =>
+        query('INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1,$2,$3,$4,$5)', [uid, title, message, type, link]).catch(() => {});
       await notify(job.employer_user_id, 'New Applicant Received', `${req.user.name} submitted an application for ${job.title}.`, 'new_application', `/employer/applicants/${job.id}`);
       await notify(req.user.id, 'Application Submitted', `Your application for ${job.title} at ${job.company_name} was delivered.`, 'application_status', '/applications');
 
@@ -99,7 +98,7 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
 router.get('/my', authenticateToken, requireRole('employee'), async (req, res) => {
   try {
     const result = await query(
-      `SELECT a.*, (a.status NOT IN ('pending', 'applied') AND a.result_seen_at IS NULL) AS has_new_result,
+      `SELECT a.*, (a.status <> 'pending' AND a.result_seen_at IS NULL) AS has_new_result,
               j.title AS job_title, j.location AS job_location, j.job_type, j.salary_range, e.company_name, e.logo_url AS company_logo
        FROM applications a JOIN jobs j ON a.job_id = j.id JOIN employers e ON j.employer_id = e.id
        WHERE a.employee_id = $1 ORDER BY a.created_at DESC`, [req.user.id]);
@@ -113,7 +112,7 @@ router.get('/my', authenticateToken, requireRole('employee'), async (req, res) =
 // How many results the candidate has not looked at yet (drives the red dot)
 router.get('/unseen-count', authenticateToken, requireRole('employee'), async (req, res) => {
   try {
-    const r = await query("SELECT COUNT(*)::int AS n FROM applications WHERE employee_id = $1 AND status NOT IN ('pending', 'applied') AND result_seen_at IS NULL", [req.user.id]);
+    const r = await query("SELECT COUNT(*)::int AS n FROM applications WHERE employee_id = $1 AND status <> 'pending' AND result_seen_at IS NULL", [req.user.id]);
     res.set('Cache-Control', 'no-store');
     res.json({ count: r.rows[0].n });
   } catch (err) {
@@ -124,7 +123,7 @@ router.get('/unseen-count', authenticateToken, requireRole('employee'), async (r
 
 router.post('/mark-seen', authenticateToken, requireRole('employee'), async (req, res) => {
   try {
-    await query("UPDATE applications SET result_seen_at = NOW() WHERE employee_id = $1 AND status NOT IN ('pending', 'applied') AND result_seen_at IS NULL", [req.user.id]);
+    await query("UPDATE applications SET result_seen_at = NOW() WHERE employee_id = $1 AND status <> 'pending' AND result_seen_at IS NULL", [req.user.id]);
     res.json({ count: 0 });
   } catch (err) {
     console.error('Mark seen error:', err.message);
@@ -144,24 +143,6 @@ router.get('/job/:jobId', authenticateToken, async (req, res) => {
     if (req.user.role !== 'admin' && job.employer_user_id !== req.user.id) {
       return res.status(403).json({ message: 'Unauthorized to view applicants for this job.' });
     }
-
-    // Automatically transition unviewed 'pending'/'applied' applications to 'viewed' when opened by employer
-    if (job.employer_user_id === req.user.id || req.user.role === 'admin') {
-      const unviewed = await query(
-        `UPDATE applications
-         SET status = 'viewed', viewed_at = NOW(), status_changed_at = NOW(), result_seen_at = NULL, updated_at = NOW()
-         WHERE job_id = $1 AND status IN ('pending', 'applied') AND viewed_at IS NULL
-         RETURNING id, employee_id`, [jobId]);
-      for (const a of unviewed.rows) {
-        notify(a.employee_id, 'Application Viewed by Employer',
-          `${job.company_name} has opened and reviewed your application for ${job.title}.`,
-          'application_viewed', '/applications');
-        emailCandidateResult(a.employee_id, 'Your application was viewed',
-          `${job.company_name} has opened and reviewed your application for ${job.title}.`);
-        audit(req, 'application.viewed', 'application', a.id);
-      }
-    }
-
     const appsRes = await query(
       `SELECT a.*, u.name AS applicant_name, u.email AS applicant_email, u.phone AS applicant_phone,
               js.gender AS applicant_gender, js.skills AS applicant_skills, js.headline AS applicant_headline, js.portfolio_url
@@ -188,63 +169,29 @@ async function loadOwnedApplication(req, res) {
   return app;
 }
 
-// 4. Mark candidate application as viewed
-router.patch('/:id/view', authenticateToken, requireActiveEmployer, async (req, res) => {
+// 4. Decline a candidate
+router.patch('/:id/reject', authenticateToken, requireActiveEmployer, async (req, res) => {
   try {
     const app = await loadOwnedApplication(req, res);
     if (!app) return;
-    if (!app.viewed_at) {
-      const nextStatus = ['pending', 'applied'].includes(app.status) ? 'viewed' : app.status;
-      await query(
-        `UPDATE applications
-         SET status = $1, viewed_at = NOW(), status_changed_at = NOW(), result_seen_at = NULL, updated_at = NOW()
-         WHERE id = $2`, [nextStatus, app.id]);
-      notify(app.employee_id, 'Application Viewed by Employer',
-        `${app.company_name} has opened and reviewed your application for ${app.job_title}.`,
-        'application_viewed', '/applications');
-      emailCandidateResult(app.employee_id, 'Your application was viewed',
-        `${app.company_name} has opened and reviewed your application for ${app.job_title}.`);
-      audit(req, 'application.viewed', 'application', app.id);
-      return res.json({ message: 'Application marked as viewed.', status: nextStatus, viewed_at: new Date().toISOString() });
-    }
-    res.json({ message: 'Application already viewed.', status: app.status, viewed_at: app.viewed_at });
+    if (app.status === 'rejected') return res.status(409).json({ message: 'This application was already declined.' });
+    const reason = cleanStr(req.body?.rejection_reason, 1000) || 'Thank you for your interest. After careful consideration, we have chosen to move forward with other candidates at this time.';
+
+    await query(
+      `UPDATE applications SET status = 'rejected', rejection_reason = $1, interview_details = NULL, interview_at = NULL,
+              status_changed_at = NOW(), result_seen_at = NULL, updated_at = NOW() WHERE id = $2`, [reason, app.id]);
+    await query('INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1,$2,$3,$4,$5)',
+      [app.employee_id, 'Application Status Update', `${app.company_name} has updated the status of your application for ${app.job_title}.`, 'application_status', '/applications']);
+    emailCandidateResult(app.employee_id, 'Your application has a new result', `${app.company_name} has reviewed your application for ${app.job_title}.`);
+    audit(req, 'application.rejected', 'application', app.id);
+    res.json({ message: 'Candidate application rejected.', status: 'rejected' });
   } catch (err) {
-    console.error('Mark application viewed error:', err.message);
+    console.error('Reject application error:', err.message);
     res.status(500).json({ message: 'Failed to update application.' });
   }
 });
 
-// 5. Shortlist a candidate
-router.patch('/:id/shortlist', authenticateToken, requireActiveEmployer, async (req, res) => {
-  try {
-    const app = await loadOwnedApplication(req, res);
-    if (!app) return;
-    if (app.status === 'rejected') {
-      return res.status(409).json({ message: 'This application was declined and cannot be shortlisted.' });
-    }
-    await query(
-      `UPDATE applications
-       SET status = 'shortlisted',
-           shortlisted_at = COALESCE(shortlisted_at, NOW()),
-           viewed_at = COALESCE(viewed_at, NOW()),
-           status_changed_at = NOW(),
-           result_seen_at = NULL,
-           updated_at = NOW()
-       WHERE id = $1`, [app.id]);
-    notify(app.employee_id, 'Application Shortlisted! 🎉',
-      `Great news! ${app.company_name} has shortlisted your application for ${app.job_title}.`,
-      'application_shortlisted', '/applications');
-    emailCandidateResult(app.employee_id, 'Good news! You have been shortlisted',
-      `Congratulations! ${app.company_name} has shortlisted your application for ${app.job_title}. They will contact you regarding next steps.`);
-    audit(req, 'application.shortlisted', 'application', app.id);
-    res.json({ message: 'Candidate shortlisted successfully.', status: 'shortlisted' });
-  } catch (err) {
-    console.error('Shortlist candidate error:', err.message);
-    res.status(500).json({ message: 'Failed to shortlist candidate.' });
-  }
-});
-
-// 6. Invite to interview (or reschedule). Time is always Rwanda time (Africa/Kigali).
+// 5. Invite to interview (or reschedule). Time is always Rwanda time (Africa/Kigali).
 router.patch('/:id/approve-interview', authenticateToken, requireActiveEmployer, async (req, res) => {
   try {
     const app = await loadOwnedApplication(req, res);
@@ -261,7 +208,7 @@ router.patch('/:id/approve-interview', authenticateToken, requireActiveEmployer,
     if (!when || when.getTime() < Date.now() + 5 * 60 * 1000) {
       return res.status(400).json({ message: 'The interview must be in the future (Rwanda time).' });
     }
-    const wasApproved = app.status === 'approved' || app.status === 'interview';
+    const wasApproved = app.status === 'approved';
     const details = {
       date, time, timezone: TZ, display: formatKigali(when),
       format: cleanStr(b.format, 60) || 'Video Call',
@@ -272,75 +219,17 @@ router.patch('/:id/approve-interview', authenticateToken, requireActiveEmployer,
     };
     await query(
       `UPDATE applications SET status = 'approved', interview_details = $1, interview_at = $2, rejection_reason = NULL,
-              viewed_at = COALESCE(viewed_at, NOW()),
-              shortlisted_at = COALESCE(shortlisted_at, NOW()),
               status_changed_at = NOW(), result_seen_at = NULL, updated_at = NOW() WHERE id = $3`,
       [JSON.stringify(details), when.toISOString(), app.id]);
-    await notify(app.employee_id, wasApproved ? 'Interview Updated' : 'Interview Invitation Scheduled! 📅',
-      `${app.company_name} ${wasApproved ? 'updated your interview for' : 'invited you to interview for'} ${app.job_title}: ${details.display}.`, 'interview_scheduled', '/applications');
+    await query('INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1,$2,$3,$4,$5)',
+      [app.employee_id, wasApproved ? 'Interview Updated' : 'Interview Invitation Scheduled!',
+       `${app.company_name} ${wasApproved ? 'updated your interview for' : 'invited you to interview for'} ${app.job_title}: ${details.display}.`, 'interview_scheduled', '/applications']);
     emailCandidateResult(app.employee_id, wasApproved ? 'Your interview details changed' : 'Good news about your application', `${app.company_name} has news about your application for ${app.job_title}.`);
     audit(req, 'application.interview_scheduled', 'application', app.id);
     res.json({ message: 'Application approved and interview scheduled.', status: 'approved', interview_details: details });
   } catch (err) {
     console.error('Schedule interview error:', err.message);
     res.status(500).json({ message: 'Failed to schedule interview.' });
-  }
-});
-
-// 7. Make final decision: Offer Extended / Hired
-router.patch('/:id/hire', authenticateToken, requireActiveEmployer, async (req, res) => {
-  try {
-    const app = await loadOwnedApplication(req, res);
-    if (!app) return;
-    if (app.status === 'rejected') {
-      return res.status(409).json({ message: 'This application was declined and cannot be marked as hired without reopening.' });
-    }
-    const notes = cleanStr(req.body?.decision_notes, 1500) || 'Congratulations! You have been selected for this position. Our hiring team will contact you regarding onboarding.';
-    await query(
-      `UPDATE applications
-       SET status = 'hired',
-           decision_at = NOW(),
-           decision_notes = $1,
-           rejection_reason = NULL,
-           viewed_at = COALESCE(viewed_at, NOW()),
-           status_changed_at = NOW(),
-           result_seen_at = NULL,
-           updated_at = NOW()
-       WHERE id = $2`, [notes, app.id]);
-    await notify(app.employee_id, 'Job Offer / Selected! 🌟',
-      `Congratulations! ${app.company_name} has chosen to hire you for ${app.job_title}!`,
-      'application_hired', '/applications');
-    emailCandidateResult(app.employee_id, 'Congratulations on your job offer!',
-      `${app.company_name} has selected you for ${app.job_title}! Sign in to Akazi to review details.`);
-    audit(req, 'application.hired', 'application', app.id);
-    res.json({ message: 'Candidate marked as hired / offer extended.', status: 'hired', decision_notes: notes });
-  } catch (err) {
-    console.error('Hire candidate error:', err.message);
-    res.status(500).json({ message: 'Failed to record hire decision.' });
-  }
-});
-
-// 8. Make final decision: Decline candidate
-router.patch('/:id/reject', authenticateToken, requireActiveEmployer, async (req, res) => {
-  try {
-    const app = await loadOwnedApplication(req, res);
-    if (!app) return;
-    if (app.status === 'rejected') return res.status(409).json({ message: 'This application was already declined.' });
-    const reason = cleanStr(req.body?.rejection_reason, 1000) || 'Thank you for your interest. After careful consideration, we have chosen to move forward with other candidates at this time.';
-
-    await query(
-      `UPDATE applications SET status = 'rejected', rejection_reason = $1,
-              decision_at = NOW(),
-              viewed_at = COALESCE(viewed_at, NOW()),
-              status_changed_at = NOW(), result_seen_at = NULL, updated_at = NOW() WHERE id = $2`, [reason, app.id]);
-    await notify(app.employee_id, 'Application Decision Update',
-      `${app.company_name} has updated the status of your application for ${app.job_title}.`, 'application_status', '/applications');
-    emailCandidateResult(app.employee_id, 'Your application has a new result', `${app.company_name} has reviewed your application for ${app.job_title}.`);
-    audit(req, 'application.rejected', 'application', app.id);
-    res.json({ message: 'Candidate application rejected.', status: 'rejected' });
-  } catch (err) {
-    console.error('Reject application error:', err.message);
-    res.status(500).json({ message: 'Failed to update application.' });
   }
 });
 

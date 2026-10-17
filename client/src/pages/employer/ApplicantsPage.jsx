@@ -1,6 +1,5 @@
 import { MessageButton } from '../../components/ChatDock';
 import FileLink from '../../components/ProtectedFile';
-import ApplicationPipeline from '../../components/ApplicationPipeline';
 import { kigaliDatePlusDays, todayKigali, formatDateTime } from '../../utils/time';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -10,9 +9,7 @@ import {
   FileText, 
   Calendar, 
   ExternalLink,
-  X,
-  BookmarkCheck,
-  Award
+  X
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -23,12 +20,11 @@ export default function ApplicantsPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { user, isActiveEmployer } = useAuth();
-  const { t, language, tr } = useLanguage();
+  const { t, language, tr} = useLanguage();
 
   const [job, setJob] = useState(null);
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
 
   // Modals state
   const [interviewModalApp, setInterviewModalApp] = useState(null);
@@ -43,9 +39,6 @@ export default function ApplicantsPage() {
 
   const [declineModalApp, setDeclineModalApp] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
-
-  const [hireModalApp, setHireModalApp] = useState(null);
-  const [hireNotes, setHireNotes] = useState('');
 
   // Redirect employers who are not verified + paid yet
   useEffect(() => {
@@ -71,15 +64,6 @@ export default function ApplicantsPage() {
   useEffect(() => {
     fetchApplicants();
   }, [jobId]);
-
-  const handleShortlist = async (app) => {
-    try {
-      await api.patch(`/applications/${app.id}/shortlist`, {});
-      await fetchApplicants();
-    } catch (err) {
-      alert(err.message || t('common.error'));
-    }
-  };
 
   const handleOpenInterview = (app) => {
     setInterviewModalApp(app);
@@ -123,59 +107,6 @@ export default function ApplicantsPage() {
     }
   };
 
-  const handleOpenHire = (app) => {
-    setHireModalApp(app);
-    setHireNotes('Congratulations! You have been selected for this position. Our hiring team will contact you regarding onboarding.');
-  };
-
-  const handleConfirmHire = async (e) => {
-    e.preventDefault();
-    if (!hireModalApp) return;
-    setModalSubmitting(true);
-    try {
-      await api.patch(`/applications/${hireModalApp.id}/hire`, { decision_notes: hireNotes });
-      setHireModalApp(null);
-      setHireNotes('');
-      await fetchApplicants();
-    } catch (err) {
-      alert(err.message || t('common.error'));
-    } finally {
-      setModalSubmitting(false);
-    }
-  };
-
-  // Counts for pipeline tabs
-  const counts = {
-    all: applicants.length,
-    applied: applicants.filter((a) => a.status === 'pending' || a.status === 'applied').length,
-    viewed: applicants.filter((a) => a.status === 'viewed').length,
-    shortlisted: applicants.filter((a) => a.status === 'shortlisted').length,
-    interview: applicants.filter((a) => a.status === 'approved' || a.status === 'interview').length,
-    hired: applicants.filter((a) => a.status === 'hired').length,
-    declined: applicants.filter((a) => a.status === 'rejected').length,
-  };
-
-  const filteredApplicants = applicants.filter((app) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'applied') return app.status === 'pending' || app.status === 'applied';
-    if (activeTab === 'viewed') return app.status === 'viewed';
-    if (activeTab === 'shortlisted') return app.status === 'shortlisted';
-    if (activeTab === 'interview') return app.status === 'approved' || app.status === 'interview';
-    if (activeTab === 'hired') return app.status === 'hired';
-    if (activeTab === 'declined') return app.status === 'rejected';
-    return true;
-  });
-
-  const tabList = [
-    { id: 'all', label: t('applicantReview.tabAll') || 'All', count: counts.all },
-    { id: 'applied', label: t('applicantReview.tabApplied') || 'Applied', count: counts.applied },
-    { id: 'viewed', label: t('applicantReview.tabViewed') || 'Viewed', count: counts.viewed },
-    { id: 'shortlisted', label: t('applicantReview.tabShortlisted') || 'Shortlisted', count: counts.shortlisted },
-    { id: 'interview', label: t('applicantReview.tabInterview') || 'Interview', count: counts.interview },
-    { id: 'hired', label: t('applicantReview.tabHired') || 'Hired', count: counts.hired },
-    { id: 'declined', label: t('applicantReview.tabDeclined') || 'Declined', count: counts.declined },
-  ];
-
   if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-zinc-500 py-20 px-4">
@@ -200,61 +131,28 @@ export default function ApplicantsPage() {
 
         {/* Page Header */}
         <div className="pb-4 border-b border-zinc-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
-                {t('applicantReview.title', { jobTitle: job?.title || 'Job' })}
-              </h1>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                {t('applicantReview.subtitle')}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200">
-                {applicants.length} {t('employerWorkspace.applicantsCount', { count: applicants.length })}
-              </span>
-            </div>
-          </div>
-
-          {/* Pipeline Tabs Bar */}
-          <div className="mt-4 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {tabList.map((tb) => (
-              <button
-                key={tb.id}
-                onClick={() => setActiveTab(tb.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
-                  activeTab === tb.id
-                    ? 'bg-zinc-900 text-white shadow-xs'
-                    : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200/80'
-                }`}
-              >
-                <span>{tb.label}</span>
-                <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-                  activeTab === tb.id ? 'bg-zinc-800 text-zinc-200' : 'bg-zinc-100 text-zinc-500'
-                }`}>
-                  {tb.count}
-                </span>
-              </button>
-            ))}
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
+            {t('applicantReview.title', { jobTitle: job?.title || 'Job' })}
+          </h1>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {t('applicantReview.subtitle')}
+          </p>
         </div>
 
         {/* Applicants List */}
-        {filteredApplicants.length === 0 ? (
+        {applicants.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center text-zinc-500 space-y-3 shadow-xs">
             <Users className="w-10 h-10 text-zinc-300 mx-auto" />
             <h3 className="text-base font-bold text-zinc-900">
-              {activeTab === 'all' 
-                ? t('applicantReview.emptyTitle')
-                : (language === 'rw' ? 'Nta bakandida bari muri iki cyiciro.' : `No candidates in "${activeTab}" stage.`)}
+              {t('applicantReview.emptyTitle')}
             </h3>
             <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-              {activeTab === 'all' ? t('applicantReview.emptyDesc') : (language === 'rw' ? 'Hitamo ikindi cyiciro cyangwa utegereze ubusabe bushya.' : 'Switch to another tab to view candidates in other pipeline stages.')}
+              {t('applicantReview.emptyDesc')}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredApplicants.map((app) => {
+            {applicants.map((app) => {
               const data = typeof app.submitted_data === 'string' 
                 ? JSON.parse(app.submitted_data || '{}') 
                 : (app.submitted_data || {});
@@ -264,13 +162,6 @@ export default function ApplicantsPage() {
               const interview = typeof app.interview_details === 'string'
                 ? JSON.parse(app.interview_details || '{}')
                 : (app.interview_details || {});
-
-              const isPending = app.status === 'pending' || app.status === 'applied';
-              const isViewed = app.status === 'viewed';
-              const isShortlisted = app.status === 'shortlisted';
-              const isInterview = app.status === 'approved' || app.status === 'interview';
-              const isHired = app.status === 'hired';
-              const isDeclined = app.status === 'rejected';
 
               return (
                 <div 
@@ -285,24 +176,15 @@ export default function ApplicantsPage() {
                           {app.applicant_name || data.candidate_name}
                         </h3>
                         <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
-                          isHired 
-                            ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
-                            : isInterview 
-                            ? 'bg-blue-100 text-blue-900 border border-blue-300' 
-                            : isShortlisted
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            : isViewed
-                            ? 'bg-sky-50 text-sky-800 border border-sky-200'
-                            : isDeclined
+                          app.status === 'approved' 
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                            : app.status === 'rejected'
                             ? 'bg-zinc-100 text-zinc-500'
                             : 'bg-zinc-100 text-zinc-800'
                         }`}>
-                          {isHired && (t('applicantReview.statusHired') || 'Hired')}
-                          {isInterview && (t('applicantReview.statusApproved') || 'Interview Scheduled')}
-                          {isShortlisted && (t('applicantReview.statusShortlisted') || 'Shortlisted')}
-                          {isViewed && (t('applicantReview.statusViewed') || 'Viewed')}
-                          {isPending && (t('applicantReview.statusPending') || 'Applied')}
-                          {isDeclined && (t('applicantReview.statusRejected') || 'Declined')}
+                          {app.status === 'approved' && t('applicantReview.statusApproved')}
+                          {app.status === 'rejected' && t('applicantReview.statusRejected')}
+                          {app.status === 'pending' && t('applicantReview.statusPending')}
                         </span>
                       </div>
 
@@ -322,71 +204,27 @@ export default function ApplicantsPage() {
                       </div>
                     </div>
 
-                    {/* Contextual Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {/* Shortlist action (available on applied or viewed) */}
-                      {(isPending || isViewed) && (
-                        <button
-                          onClick={() => handleShortlist(app)}
-                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition shadow-xs inline-flex items-center gap-1.5"
-                          title="Move candidate to shortlist"
-                        >
-                          <BookmarkCheck className="w-3.5 h-3.5" />
-                          <span>{t('applicantReview.shortlistBtn') || 'Shortlist'}</span>
-                        </button>
-                      )}
-
-                      {/* Invite to Interview (available on applied, viewed, or shortlisted) */}
-                      {(isPending || isViewed || isShortlisted) && (
+                    {/* Action buttons if pending */}
+                    {app.status === 'pending' && (
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => handleOpenInterview(app)}
-                          className="px-4 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold transition shadow-xs inline-flex items-center gap-1.5"
+                          className="px-4 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold transition shadow-xs"
                         >
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>{t('applicantReview.scheduleInterviewBtn')}</span>
+                          {t('applicantReview.scheduleInterviewBtn')}
                         </button>
-                      )}
 
-                      {/* Reschedule (on interview) */}
-                      {isInterview && (
-                        <button
-                          onClick={() => handleOpenInterview(app)}
-                          className="px-3.5 py-2 border border-zinc-300 text-zinc-800 hover:bg-zinc-50 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5"
-                        >
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>{t('applicantReview.rescheduleInterviewBtn') || 'Reschedule'}</span>
-                        </button>
-                      )}
-
-                      {/* Hire / Extend Offer (on shortlisted or interview) */}
-                      {(isShortlisted || isInterview) && (
-                        <button
-                          onClick={() => handleOpenHire(app)}
-                          className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition shadow-xs inline-flex items-center gap-1.5"
-                        >
-                          <Award className="w-3.5 h-3.5" />
-                          <span>{t('applicantReview.hireBtn') || 'Extend Offer / Hire'}</span>
-                        </button>
-                      )}
-
-                      {/* Decline (available on all except already declined or already hired) */}
-                      {!isDeclined && !isHired && (
                         <button
                           onClick={() => {
                             setDeclineModalApp(app);
                             setDeclineReason('');
                           }}
-                          className="px-3 py-2 border border-zinc-200 text-zinc-600 hover:bg-zinc-50 rounded-xl text-xs font-medium transition"
+                          className="px-3.5 py-2 border border-zinc-200 text-zinc-700 hover:bg-zinc-50 rounded-xl text-xs font-medium transition"
                         >
                           {t('applicantReview.declineBtn')}
                         </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Candidate Pipeline Progress Stepper */}
-                  <div className="px-5 py-3 bg-zinc-50/60 border-b border-zinc-100">
-                    <ApplicationPipeline app={app} compact={true} />
+                      </div>
+                    )}
                   </div>
 
                   {/* Body: Experience, Answers & Files */}
@@ -461,10 +299,10 @@ export default function ApplicantsPage() {
                     <MessageButton appId={app.id} status={app.status} />
 
                     {/* Scheduled Interview Details Card */}
-                    {isInterview && interview.date && (
-                      <div className="mt-4 p-4 rounded-xl bg-blue-50/50 border border-blue-200 space-y-2">
+                    {app.status === 'approved' && interview.date && (
+                      <div className="mt-4 p-4 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2">
                         <div className="flex items-center gap-2 text-zinc-900 font-semibold text-xs">
-                          <Calendar className="w-4 h-4 text-blue-700" />
+                          <Calendar className="w-4 h-4 text-emerald-600" />
                           <span>{t('applications.interviewCardTitle')}</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-zinc-700">
@@ -486,21 +324,8 @@ export default function ApplicantsPage() {
                       </div>
                     )}
 
-                    {/* Hired / Offer Extended Card */}
-                    {isHired && (
-                      <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs space-y-1">
-                        <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                          <Award className="w-4 h-4 text-emerald-700" />
-                          <span>{t('applicantReview.statusHired') || 'Hired / Offer Extended'}</span>
-                        </div>
-                        {app.decision_notes && (
-                          <p className="text-emerald-900">{app.decision_notes}</p>
-                        )}
-                      </div>
-                    )}
-
                     {/* Decline Reason */}
-                    {isDeclined && app.rejection_reason && (
+                    {app.status === 'rejected' && app.rejection_reason && (
                       <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-600 text-xs">
                         <span className="font-medium text-zinc-900">{t('applications.rejectionFeedback')}: </span>
                         <span>{app.rejection_reason}</span>
@@ -579,7 +404,7 @@ export default function ApplicantsPage() {
                   required
                   value={interviewForm.location_or_link}
                   onChange={(e) => setInterviewForm({ ...interviewForm, location_or_link: e.target.value })}
-                  placeholder={tr("e.g. Hotel Reception Desk, or Google Meet URL", "urugero: Ku meza yakira abashyitsi, cyangwa umurongo wa Google Meet")}
+                  placeholder={tr(tr("e.g. Hotel Reception Desk, or Google Meet URL", "urugero: Ku meza yakira abashyitsi, cyangwa umurongo wa Google Meet"), "urugero: Ku meza yakira abashyitsi, cyangwa umurongo wa Google Meet")}
                   className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900 text-xs bg-zinc-50/50"
                 />
               </div>
@@ -611,64 +436,6 @@ export default function ApplicantsPage() {
                   className="px-5 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50"
                 >
                   {modalSubmitting ? t('common.loading') : t('applicantReview.confirmInterviewBtn')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Extend Offer / Hire Candidate Modal */}
-      {hireModalApp && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-zinc-200">
-            <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-              <div>
-                <h3 className="text-base font-bold text-zinc-950 flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-emerald-600" />
-                  <span>{t('applicantReview.hireModalTitle') || 'Extend Offer / Hire Candidate'}</span>
-                </h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  {hireModalApp.applicant_name}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setHireModalApp(null)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmHire} className="p-6 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-zinc-700 mb-1">
-                  {t('applicantReview.hireNotesLabel') || 'Offer Message or Next Steps (Optional)'}
-                </label>
-                <textarea
-                  rows={4}
-                  value={hireNotes}
-                  onChange={(e) => setHireNotes(e.target.value)}
-                  placeholder={t('applicantReview.hireNotesPlaceholder') || 'e.g. Welcome to the team! Our HR team will reach out with contract details...'}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900 text-xs bg-zinc-50/50"
-                />
-              </div>
-
-              <div className="pt-4 border-t border-zinc-100 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setHireModalApp(null)}
-                  className="px-4 py-2 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalSubmitting}
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50"
-                >
-                  {modalSubmitting ? t('common.loading') : (t('applicantReview.confirmHireBtn') || 'Confirm Offer & Notify Candidate')}
                 </button>
               </div>
             </form>

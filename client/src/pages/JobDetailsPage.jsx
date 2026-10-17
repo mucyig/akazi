@@ -22,7 +22,6 @@ import { useLanguage } from '../context/LanguageContext';
 import ApplyModal from '../components/ApplyModal';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { formatSalary } from '../utils/format';
-import ApplicationPipeline from '../components/ApplicationPipeline';
 
 export default function JobDetailsPage() {
   const { id } = useParams();
@@ -389,13 +388,6 @@ export default function JobDetailsPage() {
                   : 'Verified registered business on Akazi platform.')}
               </div>
             </section>
-
-            {/* Candidate Application Live Status Stepper */}
-            {hasApplied && application && (
-              <div className="pt-6 border-t border-zinc-100">
-                <ApplicationPipeline app={application} />
-              </div>
-            )}
 
             {/* Bottom Apply Action */}
             <div className="pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
