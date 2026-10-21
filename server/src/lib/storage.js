@@ -16,8 +16,8 @@ const MIME = {
 };
 const extOf = (key) => path.extname(key).toLowerCase().replace('.', '');
 const contentTypeFor = (key) => MIME[extOf(key)] || 'application/octet-stream';
-// All files download as attachment for safety
-const dispositionFor = () => 'attachment';
+// PDFs and images open in the browser tab, everything else downloads
+const dispositionFor = (key) => (['pdf', 'png', 'jpg', 'jpeg', 'webp'].includes(extOf(key)) ? 'inline' : 'attachment');
 
 const bucket = process.env.B2_BUCKET || process.env.STORAGE_BUCKET || process.env.R2_BUCKET;
 const accessKeyId = process.env.B2_KEY_ID || process.env.B2_APPLICATION_KEY_ID || process.env.STORAGE_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID;
@@ -149,7 +149,7 @@ async function getDownloadUrl(key, { expiresIn = 300 } = {}) {
       new S3.GetObjectCommand({
         Bucket: bucket, Key: key,
         ResponseContentType: contentTypeFor(key),
-        ResponseContentDisposition: `attachment; filename="${filename}"`,
+        ResponseContentDisposition: `${dispositionFor(key)}; filename="${filename}"`,
       }),
       { expiresIn }
     );

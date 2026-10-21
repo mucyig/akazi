@@ -88,7 +88,7 @@ Uploads undergo multi-layer inspection before and after storage:
   - SHA-256 hashes of employer registration documents are checked to log `duplicate_registration_doc` in `audit_log` without blocking registration.
 - **Safe delivery:**
   - Storage keys are cryptographically random.
-  - Signed URLs and downloads enforce `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
+  - Signed URLs and downloads enforce safe MIME types, inline viewing for PDFs/images, and attachment downloads for others, with `X-Content-Type-Options: nosniff`.
 
 ## Security summary
 
