@@ -91,46 +91,51 @@ async function run() {
       }
     }
 
-    const item = await storage.getStream(key);
-    if (!item) {
-      console.warn(`[Backfill] File not found in storage: ${key}`);
-      continue;
+    try {
+      const item = await storage.getStream(key);
+      if (!item) {
+        console.warn(`[Backfill] File not found in storage: ${key}`);
+        continue;
+      }
+
+      const buffer = await streamToBuffer(item.stream);
+      const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+      const ext = storage.extOf(key);
+
+      const inspection = await inspectFile(buffer, ext);
+      let status;
+      let detail;
+
+      if (!inspection.ok) {
+        status = 'infected';
+        detail = inspection.reason;
+        infected += 1;
+      } else {
+        const scanRes = await scanBuffer(buffer);
+        status = scanRes.status || 'error';
+        detail = scanRes.detail || null;
+        if (status === 'clean') clean += 1;
+        else if (status === 'infected') infected += 1;
+        else errored += 1;
+      }
+
+      await query(
+        `INSERT INTO file_scans (key, sha256, status, scanned_at, detail)
+         VALUES ($1, $2, $3, NOW(), $4)
+         ON CONFLICT (key) DO UPDATE
+         SET sha256 = EXCLUDED.sha256,
+             status = EXCLUDED.status,
+             scanned_at = EXCLUDED.scanned_at,
+             detail = EXCLUDED.detail`,
+        [key, sha256, status, detail]
+      );
+
+      scanned += 1;
+      console.log(`[Backfill] Scanned ${key}: status=${status} (${detail || 'OK'})`);
+    } catch (err) {
+      console.error(`[Backfill] Error processing ${key}:`, err.message);
+      errored += 1;
     }
-
-    const buffer = await streamToBuffer(item.stream);
-    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
-    const ext = storage.extOf(key);
-
-    const inspection = await inspectFile(buffer, ext);
-    let status;
-    let detail;
-
-    if (!inspection.ok) {
-      status = 'infected';
-      detail = inspection.reason;
-      infected += 1;
-    } else {
-      const scanRes = await scanBuffer(buffer);
-      status = scanRes.status || 'error';
-      detail = scanRes.detail || null;
-      if (status === 'clean') clean += 1;
-      else if (status === 'infected') infected += 1;
-      else errored += 1;
-    }
-
-    await query(
-      `INSERT INTO file_scans (key, sha256, status, scanned_at, detail)
-       VALUES ($1, $2, $3, NOW(), $4)
-       ON CONFLICT (key) DO UPDATE
-       SET sha256 = EXCLUDED.sha256,
-           status = EXCLUDED.status,
-           scanned_at = EXCLUDED.scanned_at,
-           detail = EXCLUDED.detail`,
-      [key, sha256, status, detail]
-    );
-
-    scanned += 1;
-    console.log(`[Backfill] Scanned ${key}: status=${status} (${detail || 'OK'})`);
   }
 
   console.log(`\n[Backfill] Completed: ${scanned} scanned (${clean} clean, ${infected} infected, ${errored} errors), ${skipped} skipped.`);

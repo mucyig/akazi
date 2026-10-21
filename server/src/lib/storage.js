@@ -95,8 +95,15 @@ async function remove(keys) {
 
 async function getStream(key) {
   if (useCloud) {
-    const out = await s3.send(new S3.GetObjectCommand({ Bucket: bucket, Key: key }));
-    return { stream: out.Body instanceof Readable ? out.Body : Readable.fromWeb(out.Body), size: out.ContentLength };
+    try {
+      const out = await s3.send(new S3.GetObjectCommand({ Bucket: bucket, Key: key }));
+      return { stream: out.Body instanceof Readable ? out.Body : Readable.fromWeb(out.Body), size: out.ContentLength };
+    } catch (err) {
+      if (err.name === 'NoSuchKey' || err.Code === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw err;
+    }
   }
   const p = localPath(key);
   if (!fs.existsSync(p)) return null;
