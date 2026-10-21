@@ -2,6 +2,8 @@ import { formatDate } from '../../utils/time';
 import FileLink from '../../components/ProtectedFile';
 import React, { useState, useEffect } from 'react';
 import { 
+  Flag,
+  AlertTriangle,
   ShieldCheck, 
   Users, 
   Briefcase, 
@@ -32,6 +34,9 @@ export default function AdminDashboard() {
   const [allEmployers, setAllEmployers] = useState([]);
   const [allJobs, setAllJobs] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+  const [reportFilter, setReportFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -40,20 +45,44 @@ export default function AdminDashboard() {
   const [rejectingEmp, setRejectingEmp] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
 
+  const handleReportAction = async (reportId, status, takeDownJob = false) => {
+    if (takeDownJob) {
+      const ok = window.confirm(t('admin.takeDownConfirm') || 'Remove this job posting and mark report resolved?');
+      if (!ok) return;
+    }
+    setActionLoading(true);
+    try {
+      await api.patch(`/admin/reports/${reportId}`, {
+        status,
+        take_down_job: takeDownJob,
+      });
+      setSuccessMsg(status === 'dismissed' ? 'Report dismissed.' : 'Report resolved successfully.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+      loadAllData();
+    } catch (err) {
+      alert(err.message || 'Failed to update report.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [pendingRes, employersRes, jobsRes, usersRes] = await Promise.all([
+      const [pendingRes, employersRes, jobsRes, usersRes, reportsRes] = await Promise.all([
         api.get('/admin/pending-employers'),
         api.get('/admin/employers'),
         api.get('/admin/jobs'),
-        api.get('/admin/users')
+        api.get('/admin/users'),
+        api.get('/admin/reports')
       ]);
 
       setPendingEmployers(pendingRes.employers || []);
       setAllEmployers(employersRes.employers || []);
       setAllJobs(jobsRes.jobs || []);
       setAllUsers(usersRes.users || []);
+      setReports(reportsRes.reports || []);
+      setPendingReportsCount(reportsRes.pending_count || 0);
     } catch (err) {
       console.error('Failed to load admin data', err);
     } finally {
@@ -218,6 +247,23 @@ export default function AdminDashboard() {
           >
             {t('admin.usersTab', { count: allUsers.length })}
           </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'reports'
+                ? 'border-red-600 text-red-600 font-bold'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800'
+            }`}
+          >
+            <Flag className="w-3.5 h-3.5" />
+            <span>{t('admin.reportsTab', { count: pendingReportsCount }) || `Reports (${pendingReportsCount})`}</span>
+            {pendingReportsCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white leading-none">
+                {pendingReportsCount}
+              </span>
+            )}
+          </button>
+
         </div>
 
         {/* Tab 1: Pending Employers Verification Queue */}

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { query } = require('../db');
 const { optionalAuth, authenticateToken, requireActiveEmployer, requireVerifiedEmail } = require('../middleware/auth');
 const { cleanStr, safeJson } = require('../lib/validate');
@@ -8,6 +9,16 @@ const { audit } = require('../lib/audit');
 
 const JOB_TYPES = ['full-time', 'part-time', 'contract', 'temporary', 'internship', 'freelance', 'volunteer'];
 const WORKPLACES = ['on-site', 'remote', 'hybrid'];
+const REPORT_REASONS = ['payment_fee', 'fraud_scam', 'offensive_content', 'misleading_expired', 'other'];
+
+const reportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.clientIp || req.ip,
+  message: { message: 'Too many reports submitted from this network. Please wait a few minutes before trying again.' },
+});
 const OPEN_FILTER = `j.status = 'active' AND u.status = 'approved' AND (j.deadline IS NULL OR j.deadline >= (NOW() AT TIME ZONE 'Africa/Kigali')::date)`;
 const likeEscape = (s) => s.replace(/[\\%_]/g, (c) => '\\' + c);
 
@@ -211,6 +222,63 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Delete job error:', err.message);
     res.status(500).json({ message: 'Failed to remove job posting.' });
+  }
+});
+
+// 6. Report a job posting
+router.post('/:id/report', optionalAuth, reportLimiter, async (req, res) => {
+  try {
+    const jobId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(jobId)) return res.status(404).json({ message: 'Job not found.' });
+
+    const jobRes = await query('SELECT id, title, employer_id FROM jobs WHERE id = $1', [jobId]);
+    if (!jobRes.rows.length) return res.status(404).json({ message: 'Job not found.' });
+
+    const reason = cleanStr(req.body?.reason, 50);
+    if (!reason || !REPORT_REASONS.includes(reason)) {
+      return res.status(400).json({ message: 'Please select a valid report reason.' });
+    }
+
+    const details = cleanStr(req.body?.details, 1000) || null;
+    const userId = req.user?.id || null;
+    const ip = req.clientIp || req.ip || null;
+
+    // Check if duplicate report in last 24h from same user or IP for this job
+    const dupCheck = await query(
+      `SELECT id FROM reports
+       WHERE job_id = $1 AND (
+         ($2::int IS NOT NULL AND user_id = $2::int) OR
+         ($3::text IS NOT NULL AND client_ip = $3::text AND created_at > NOW() - INTERVAL '24 hours')
+       )
+       LIMIT 1`,
+      [jobId, userId, ip]
+    );
+
+    if (dupCheck.rows.length > 0) {
+      return res.json({
+        ok: true,
+        already_reported: true,
+        message: 'You have already reported this job posting. Our team is actively reviewing it.',
+      });
+    }
+
+    const ins = await query(
+      `INSERT INTO reports (job_id, user_id, reason, details, client_ip)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, created_at`,
+      [jobId, userId, reason, details, ip]
+    );
+
+    audit(req, 'job.reported', 'job', jobId, { report_id: ins.rows[0].id, reason });
+
+    res.status(201).json({
+      ok: true,
+      message: 'Thank you for your report. Our team will review this posting promptly to keep the community safe.',
+      report_id: ins.rows[0].id,
+    });
+  } catch (err) {
+    console.error('Job report error:', err.message);
+    res.status(500).json({ message: 'Failed to submit report. Please try again.' });
   }
 });
 

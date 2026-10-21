@@ -176,3 +176,20 @@ CREATE TABLE IF NOT EXISTS file_scans (
 
 CREATE INDEX IF NOT EXISTS idx_file_scans_sha256 ON file_scans(sha256);
 CREATE INDEX IF NOT EXISTS idx_file_scans_status ON file_scans(status);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id SERIAL PRIMARY KEY,
+  job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reason VARCHAR(50) NOT NULL,
+  details TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'dismissed', 'action_taken')),
+  action_notes TEXT,
+  client_ip VARCHAR(64),
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_job ON reports(job_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC);

@@ -15,12 +15,13 @@ const notify = (uid, title, message, type, link = null) =>
 
 router.get('/stats', async (req, res) => {
   try {
-    const [u, j, a] = await Promise.all([
+    const [u, j, a, rep] = await Promise.all([
       query('SELECT role, status, count(*)::int AS count FROM users GROUP BY role, status'),
       query('SELECT status, count(*)::int AS count FROM jobs GROUP BY status'),
       query('SELECT status, count(*)::int AS count FROM applications GROUP BY status'),
+      query("SELECT count(*)::int AS count FROM reports WHERE status = 'pending'"),
     ]);
-    const s = { totalUsers: 0, pendingEmployers: 0, approvedEmployers: 0, totalEmployees: 0, totalJobs: 0, activeJobs: 0, totalApplications: 0, approvedApplications: 0, rejectedApplications: 0 };
+    const s = { totalUsers: 0, pendingEmployers: 0, approvedEmployers: 0, totalEmployees: 0, totalJobs: 0, activeJobs: 0, totalApplications: 0, approvedApplications: 0, rejectedApplications: 0, pendingReports: rep.rows[0]?.count || 0 };
     u.rows.forEach((r) => {
       s.totalUsers += r.count;
       if (r.role === 'employer' && r.status === 'pending') s.pendingEmployers += r.count;
@@ -141,6 +142,96 @@ router.get('/audit', async (req, res) => {
        FROM audit_log l LEFT JOIN users u ON u.id = l.actor_id ORDER BY l.id DESC LIMIT $1`, [limit]);
     res.json({ entries: r.rows });
   } catch (err) { fail(res, 'Audit log error:', err, 'Failed to load the audit log.'); }
+});
+
+// Moderation reports
+router.get('/reports', async (req, res) => {
+  try {
+    const status = cleanStr(req.query.status, 20);
+    const validStatuses = ['pending', 'reviewed', 'dismissed', 'action_taken'];
+    let whereClause = '';
+    const params = [];
+    if (status && validStatuses.includes(status)) {
+      params.push(status);
+      whereClause = 'WHERE r.status = $1';
+    }
+
+    const r = await query(
+      `SELECT r.id, r.job_id, r.user_id, r.reason, r.details, r.status, r.action_notes,
+              r.client_ip, r.created_at, r.reviewed_at,
+              j.title AS job_title, j.location AS job_location, j.status AS job_status,
+              e.company_name, e.id AS employer_id, e.user_id AS employer_user_id,
+              u.name AS reporter_name, u.email AS reporter_email
+       FROM reports r
+       LEFT JOIN jobs j ON j.id = r.job_id
+       LEFT JOIN employers e ON e.id = j.employer_id
+       LEFT JOIN users u ON u.id = r.user_id
+       ${whereClause}
+       ORDER BY (CASE WHEN r.status = 'pending' THEN 0 ELSE 1 END), r.created_at DESC
+       LIMIT 200`,
+      params
+    );
+
+    const pendingCountRes = await query("SELECT COUNT(*)::int AS count FROM reports WHERE status = 'pending'");
+    const pendingCount = pendingCountRes.rows[0]?.count || 0;
+
+    res.json({ reports: r.rows, pending_count: pendingCount });
+  } catch (err) {
+    fail(res, 'Admin get reports error:', err, 'Failed to retrieve reports.');
+  }
+});
+
+router.patch('/reports/:id', async (req, res) => {
+  try {
+    const reportId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(reportId)) return res.status(404).json({ message: 'Report not found.' });
+
+    const status = cleanStr(req.body?.status, 20);
+    const action_notes = cleanStr(req.body?.action_notes, 1000) || null;
+    const takeDownJob = Boolean(req.body?.take_down_job);
+
+    const validStatuses = ['pending', 'reviewed', 'dismissed', 'action_taken'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid report status.' });
+    }
+
+    const reportRes = await query(
+      `SELECT r.*, j.title AS job_title, e.user_id AS employer_user_id
+       FROM reports r
+       LEFT JOIN jobs j ON j.id = r.job_id
+       LEFT JOIN employers e ON e.id = j.employer_id
+       WHERE r.id = $1`,
+      [reportId]
+    );
+    const report = reportRes.rows[0];
+    if (!report) return res.status(404).json({ message: 'Report not found.' });
+
+    if (takeDownJob && report.job_id) {
+      await query('DELETE FROM jobs WHERE id = $1', [report.job_id]);
+      if (report.employer_user_id) {
+        await notify(
+          report.employer_user_id,
+          'Job Posting Removed',
+          `Your job posting "${report.job_title || ''}" was removed following a community moderation report.`,
+          'system'
+        );
+      }
+      audit(req, 'job.removed_by_report', 'job', report.job_id, { report_id: reportId });
+    }
+
+    const upd = await query(
+      `UPDATE reports
+       SET status = $1, action_notes = COALESCE($2, action_notes), reviewed_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [status, action_notes, reportId]
+    );
+
+    audit(req, 'report.updated', 'report', reportId, { status, take_down_job: takeDownJob });
+    res.json({ message: 'Report updated successfully.', report: upd.rows[0] });
+  } catch (err) {
+    fail(res, 'Admin update report error:', err, 'Failed to update report.');
+  }
 });
 
 module.exports = router;

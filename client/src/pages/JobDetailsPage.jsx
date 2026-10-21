@@ -14,12 +14,14 @@ import {
   ShieldCheck,
   ChevronRight,
   Share2,
-  Check
+  Check,
+  Flag
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import ApplyModal from '../components/ApplyModal';
+import ReportJobModal from '../components/ReportJobModal';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { formatSalary } from '../utils/format';
 
@@ -35,6 +37,7 @@ export default function JobDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   usePageTitle(job ? `${job.title} · ${job.company_name}` : (language === 'rw' ? 'Umurimo' : 'Job Details'));

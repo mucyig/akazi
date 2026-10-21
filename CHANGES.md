@@ -90,3 +90,7 @@ To prevent identity spoofing, duplicate applications under altered demographics,
 - **Results alert:** red dot on "My applications" when an employer's decision or interview arrives (plus a short email).
 - **Time:** everything in Rwanda time from the server clock; interviews use a 24-hour time input; deadlines enforced.
 - **Other:** chat moved to the database with rate limiting; jobs filtering and pagination in SQL; ownership checks (notifications, jobs, applications); admin action audit log; no internal error text leaks; worker passes the real visitor IP using a shared secret.
+- **Reporting:** community job reporting (`reports` table, rate-limited `POST /api/jobs/:id/report`, anti-duplicate protection, bilingual modal with reason selection, and admin moderation dashboard to review, dismiss, or take down fraudulent listings).
+
+
+https://craydel.com/universities/malaysia/inti-international-university/1626840380 zaboro zo kwaplayyinga mhn
