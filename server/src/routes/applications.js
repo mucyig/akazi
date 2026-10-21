@@ -66,12 +66,12 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
       if (profile.gender) parsed.gender = profile.gender; else delete parsed.gender;
 
       let resume = null;
-      if (req.files?.resume?.[0]) { resume = await storeUpload(req.files.resume[0], 'resumes'); stored.push(resume); }
+      if (req.files?.resume?.[0]) { resume = await storeUpload(req.files.resume[0], 'resumes', req); stored.push(resume); }
       else if (profile.resume_url) resume = profile.resume_url;
 
       const uploaded = [];
       for (const f of req.files?.attachments || []) {
-        const key = await storeUpload(f, 'attachments'); stored.push(key);
+        const key = await storeUpload(f, 'attachments', req); stored.push(key);
         uploaded.push({ name: cleanStr(f.originalname, 120), key, size: f.size, mimetype: storage.contentTypeFor(key) });
       }
 
@@ -88,6 +88,7 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
       res.status(201).json({ message: 'Application submitted successfully!', application: ins.rows[0] });
     } catch (err) {
       if (stored.length) await storage.remove(stored);
+      if (err.status) return res.status(err.status).json({ message: err.message });
       if (isPgUnique(err)) return res.status(409).json({ message: 'You have already submitted an application for this position.' });
       console.error('Submit application error:', err.message);
       res.status(500).json({ message: 'Error submitting application.' });

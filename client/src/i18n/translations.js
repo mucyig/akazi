@@ -89,7 +89,7 @@ export const translations = {
       experience: 'Relevant Experience (briefly describe)',
       experiencePlaceholder: 'Describe your previous work in this field or similar roles...',
       cvDocument: 'Curriculum Vitae (CV / Resume)',
-      cvHelp: 'Upload your CV in PDF or DOC format.',
+      cvHelp: 'Upload your CV in PDF or DOCX format.',
       certDocument: 'Certificate / Diploma (if applicable)',
       certHelp: 'Upload professional certificates or diplomas.',
       extraNote: 'Message to the Employer (Optional)',
@@ -116,7 +116,9 @@ export const translations = {
         emailRequired: 'Please provide a valid email address.',
         termsRequired: 'Please confirm that the information provided is truthful.',
         cvRequired: 'This employer requires a CV upload.',
-        customQuestionRequired: 'Please complete all required employer questions.'
+        customQuestionRequired: 'Please complete all required employer questions.',
+        fileChecking: 'This file is still being checked.',
+        fileSecurityError: 'The uploaded file failed security validation.'
       }
     },
     auth: {
@@ -212,7 +214,11 @@ export const translations = {
       failedDesc: 'The payment was not completed. Please try again.',
       tryAgain: 'Try again',
       invalidNumber: 'Enter a valid Rwandan number, e.g. 078 123 4567.',
-      genericError: 'Something went wrong. Please try again.'
+      genericError: 'Something went wrong. Please try again.',
+      timeoutTitle: 'Payment is being confirmed',
+      timeoutDesc: 'Your payment confirmation is taking a bit longer. If you have approved the prompt on your phone, your account will be activated automatically and we will notify you.',
+      checkStatusBtn: 'Check payment status',
+      checking: 'Checking status...'
     },
     employerWorkspace: {
       title: 'Employer Workspace',
@@ -466,7 +472,7 @@ export const translations = {
       experience: 'Uburambe ufite muri uyu murimo (mu magambo make)',
       experiencePlaceholder: 'Sobanura akazi nk\'aka waba warakoze mbere cyangwa ahandi...',
       cvDocument: 'CV / Umwirondoro w\'Akazi',
-      cvHelp: 'Shyiraho inyandiko ya CV muri PDF cyangwa DOC.',
+      cvHelp: 'Shyiraho inyandiko ya CV muri PDF cyangwa DOCX.',
       certDocument: 'Impamyabumenyi / Icyemezo cy\'amasomo (Niba gihari)',
       certHelp: 'Shyiraho icyemezo cy\'amashuri cyangwa amahugurwa wize.',
       extraNote: 'Ubutumwa bugenewe Umukoresha (Biramutse bihari)',
@@ -493,7 +499,9 @@ export const translations = {
         emailRequired: 'Nyamuneka andika imeyili yawe.',
         termsRequired: 'Ugomba kwemeza ko amakuru watanze ari ukuri.',
         cvRequired: 'Uyu mukoresha asaba gushyiraho CV.',
-        customQuestionRequired: 'Nyamuneka subiza ibibazo byose byabajijwe n\'umukoresha.'
+        customQuestionRequired: 'Nyamuneka subiza ibibazo byose byabajijwe n\'umukoresha.',
+        fileChecking: 'Iyi dosiye iracyasuzumwa umutekano.',
+        fileSecurityError: 'Dosiye washyizemo ntiyujuje ibisabwa by\'umutekano.'
       }
     },
     auth: {
@@ -589,7 +597,11 @@ export const translations = {
       failedDesc: 'Ubwishyu ntibwarangira. Ongera ugerageze.',
       tryAgain: 'Ongera ugerageze',
       invalidNumber: 'Andika numero y\'u Rwanda yemewe, urugero 078 123 4567.',
-      genericError: 'Hari ikitagenze neza. Ongera ugerageze.'
+      genericError: 'Hari ikitagenze neza. Ongera ugerageze.',
+      timeoutTitle: 'Ubwishyu buracyatunganywa',
+      timeoutDesc: 'Kwemezwa k\'ubwishyu kuratinda gato. Niba wemeje ubutumwa kuri telefoni yawe, konti izafungurwa mu buryo bwikora kandi uzabimenyeshwa.',
+      checkStatusBtn: 'Reba uko ubwishyu buhagaze',
+      checking: 'Biragenzurwa...'
     },
     employerWorkspace: {
       title: 'Ahabarizwa Umukoresha',

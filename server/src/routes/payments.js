@@ -6,7 +6,22 @@ const { query } = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const paypack = require('../lib/paypack');
 const { buildWebhookUpdatePayload } = require('../lib/payment-webhook');
+const { settlePayment } = require('../lib/settle-payment');
 const { audit } = require('../lib/audit');
+
+// In-memory throttle cache: maps ref -> timestamp of last PayPack lookup.
+// Note: In a multi-instance or clustered deployment, this Map is per-process;
+// for multi-server clusters a shared distributed cache (e.g. Redis) or database lock
+// should be used instead.
+const statusCheckThrottleMap = new Map();
+
+function withTimeout(promise, ms) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
 
 // Employer verification fee (RWF) - paid AFTER admin approval.
 const EMPLOYER_FEE = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '5000', 10);
@@ -89,11 +104,55 @@ router.get('/paypack/latest', authenticateToken, async (req, res) => {
 
 router.get('/paypack/status/:ref', authenticateToken, async (req, res) => {
   try {
-    const r = await query('SELECT * FROM payments WHERE ref = $1', [String(req.params.ref).slice(0, 100)]);
+    const ref = String(req.params.ref).slice(0, 100);
+    const r = await query('SELECT * FROM payments WHERE ref = $1', [ref]);
     if (!r.rows.length) return res.status(404).json({ message: 'Payment not found.' });
-    const p = r.rows[0];
+    let p = r.rows[0];
     if (req.user.role !== 'admin' && p.user_id !== req.user.id) return res.status(403).json({ message: 'Access denied.' });
-    res.json({ payment: { ref: p.ref, amount: p.amount, status: p.status, phone: p.phone } });
+
+    const createdAt = new Date(p.created_at).getTime();
+    const ageSeconds = Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
+    const expiresAt = new Date(createdAt + 3 * 60 * 1000).toISOString();
+
+    // If still pending, older than 20 seconds, and PayPack is configured: check PayPack with throttling
+    if (p.status === 'pending' && ageSeconds >= 20 && paypack.isConfigured()) {
+      const lastCheck = statusCheckThrottleMap.get(ref) || 0;
+      const now = Date.now();
+      if (now - lastCheck >= 10000) {
+        statusCheckThrottleMap.set(ref, now);
+        try {
+          const live = await withTimeout(paypack.findTransaction(ref), 5000);
+          const confirmed = live?.data || live;
+          if (confirmed) {
+            const info = buildWebhookUpdatePayload(confirmed, JSON.stringify(confirmed));
+            if (info.status === 'paid' || info.status === 'failed') {
+              const settleRes = await settlePayment(ref, confirmed, JSON.stringify(confirmed), {
+                source: 'status_check',
+                clientIp: req.clientIp,
+                actorId: req.user.id,
+              });
+              if (settleRes?.status) {
+                p.status = settleRes.status;
+              }
+            }
+          }
+        } catch (e) {
+          // If PayPack is unreachable or times out, just return the current DB status
+          console.warn('[Payments] Live status check failed for', ref, e.message);
+        }
+      }
+    }
+
+    res.json({
+      payment: {
+        ref: p.ref,
+        amount: p.amount,
+        status: p.status,
+        phone: p.phone,
+        age_seconds: ageSeconds,
+        expires_at: expiresAt,
+      },
+    });
   } catch (err) {
     console.error('PayPack status error:', err.message);
     res.status(500).json({ message: 'Failed to check the payment status.' });
@@ -120,11 +179,6 @@ router.post('/paypack/webhook', webhookLimiter, async (req, res) => {
     const ref = typeof data.ref === 'string' ? data.ref.slice(0, 100) : null;
     if (!ref) return res.json({ received: true, ignored: true });
 
-    const found = await query('SELECT * FROM payments WHERE ref = $1', [ref]);
-    const payment = found.rows[0];
-    if (!payment) return res.json({ received: true, unmatched: true });
-    if (payment.status !== 'pending') return res.json({ received: true, duplicate: true });
-
     let confirmed = data;
     if (paypack.isConfigured()) {
       try {
@@ -138,29 +192,17 @@ router.post('/paypack/webhook', webhookLimiter, async (req, res) => {
       return res.status(503).json({ message: 'Payment gateway is not configured.' });
     }
 
-    const info = buildWebhookUpdatePayload(confirmed, raw.toString('utf8'));
-    if (info.status === 'paid' && confirmed.amount !== undefined && Number(confirmed.amount) !== Number(payment.amount)) {
-      console.error(`[Payments] Amount mismatch for ${ref}: expected ${payment.amount}, got ${confirmed.amount}`);
-      audit({ user: null, clientIp: req.clientIp }, 'payment.amount_mismatch', 'payment', ref, { expected: payment.amount, got: confirmed.amount });
-      return res.json({ received: true, rejected: true });
-    }
-    if (info.status === 'pending') return res.json({ received: true, pending: true });
+    const result = await settlePayment(ref, confirmed, raw.toString('utf8'), {
+      source: 'webhook',
+      clientIp: req.clientIp,
+    });
 
-    const upd = await query(
-      `UPDATE payments SET status = $1, provider = $2, provider_status = $3, raw_payload = $4, updated_at = NOW()
-       WHERE ref = $5 AND status = 'pending' RETURNING *`,
-      [info.status, info.provider, info.providerStatus, info.rawPayload, ref]);
-    if (!upd.rows.length) return res.json({ received: true, duplicate: true });
+    if (result.unmatched) return res.json({ received: true, unmatched: true });
+    if (result.duplicate) return res.json({ received: true, duplicate: true });
+    if (result.rejected) return res.json({ received: true, rejected: true });
+    if (result.pending) return res.json({ received: true, pending: true });
+    if (result.ignored) return res.json({ received: true, ignored: true });
 
-    if (info.status === 'paid') {
-      await query("UPDATE employers SET payment_status = 'paid' WHERE id = $1", [payment.employer_id]);
-      await query('INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1,$2,$3,$4,$5)', [
-        payment.user_id, 'Payment received - your account is active!',
-        `Your ${EMPLOYER_FEE.toLocaleString('en-US')} RWF verification payment was received. You can now post jobs and hire on Akazi.`, 'payment', '/employer/dashboard']);
-      audit({ user: null, clientIp: req.clientIp }, 'payment.paid', 'payment', ref, { employer_id: payment.employer_id });
-    } else {
-      await query("UPDATE employers SET payment_status = 'failed' WHERE id = $1 AND payment_status <> 'paid'", [payment.employer_id]);
-    }
     res.json({ received: true });
   } catch (err) {
     console.error('PayPack webhook error:', err.message);

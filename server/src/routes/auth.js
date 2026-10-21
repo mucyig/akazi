@@ -6,6 +6,7 @@ const router = express.Router();
 const { query, withTransaction } = require('../db');
 const { generateToken, toPublicUser, authenticateToken } = require('../middleware/auth');
 const { upload, storeUpload } = require('../middleware/upload');
+const { findDuplicateDoc } = require('../lib/filescan');
 const storage = require('../lib/storage');
 const { ageOn, isValidYmd } = require('../lib/time');
 const { cleanStr, checkFullName, checkEmail, checkPassword, checkEmailAndPassword, normalizeUrl, checkPhone, validatePhone, normalizePhone, isPgUnique } = require('../lib/validate');
@@ -68,8 +69,18 @@ router.post('/register-employer', upload.fields([{ name: 'logo', maxCount: 1 }, 
 
     const password_hash = await bcrypt.hash(b.password, 11);
     let logo_key = null; let doc_key = null;
-    if (req.files?.logo?.[0]) { logo_key = await storeUpload(req.files.logo[0], 'logos'); stored.push(logo_key); }
-    if (req.files?.registration_doc?.[0]) { doc_key = await storeUpload(req.files.registration_doc[0], 'documents'); stored.push(doc_key); }
+    if (req.files?.logo?.[0]) { logo_key = await storeUpload(req.files.logo[0], 'logos', req); stored.push(logo_key); }
+    if (req.files?.registration_doc?.[0]) {
+      doc_key = await storeUpload(req.files.registration_doc[0], 'documents', req);
+      stored.push(doc_key);
+      const dup = await findDuplicateDoc(req.files.registration_doc[0].sha256);
+      if (dup) {
+        audit(req, 'duplicate_registration_doc', 'employer', dup.employer_id, {
+          other_employer_id: dup.employer_id,
+          sha256: req.files.registration_doc[0].sha256,
+        });
+      }
+    }
 
     const contact = cleanStr(b.contact_person, 120);
     if (contact) {
@@ -105,6 +116,7 @@ router.post('/register-employer', upload.fields([{ name: 'logo', maxCount: 1 }, 
     });
   } catch (err) {
     if (stored.length) await storage.remove(stored);
+    if (err.status) return res.status(err.status).json({ message: err.message });
     if (isPgUnique(err)) return res.status(409).json({ message: 'An account with this email address already exists.' });
     console.error('Employer registration error:', err.message);
     res.status(500).json({ message: 'Something went wrong while creating your account. Please try again.' });
@@ -136,7 +148,7 @@ router.post('/register-employee', upload.single('resume'), async (req, res) => {
 
     const password_hash = await bcrypt.hash(b.password, 11);
     let resume_key = null;
-    if (req.file) { resume_key = await storeUpload(req.file, 'resumes'); stored.push(resume_key); }
+    if (req.file) { resume_key = await storeUpload(req.file, 'resumes', req); stored.push(resume_key); }
 
     const { user, profile } = await withTransaction(async (q) => {
       const u = await q(
@@ -158,6 +170,7 @@ router.post('/register-employee', upload.single('resume'), async (req, res) => {
     res.status(201).json({ message: 'Candidate account created successfully.', token: generateToken(user), user: toPublicUser(user), profile });
   } catch (err) {
     if (stored.length) await storage.remove(stored);
+    if (err.status) return res.status(err.status).json({ message: err.message });
     if (isPgUnique(err)) return res.status(409).json({ message: 'An account with this email address already exists.' });
     console.error('Job seeker registration error:', err.message);
     res.status(500).json({ message: 'Something went wrong while creating your account. Please try again.' });

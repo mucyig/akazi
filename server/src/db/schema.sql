@@ -164,3 +164,15 @@ CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, purpose)
 CREATE INDEX IF NOT EXISTS idx_chat_app ON chat_messages(application_id);
 CREATE INDEX IF NOT EXISTS idx_chat_app_created ON chat_messages(application_id, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS file_scans (
+  key TEXT PRIMARY KEY,
+  sha256 TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','clean','infected','error')),
+  scanned_at TIMESTAMPTZ,
+  detail TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_scans_sha256 ON file_scans(sha256);
+CREATE INDEX IF NOT EXISTS idx_file_scans_status ON file_scans(status);

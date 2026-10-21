@@ -58,6 +58,11 @@ router.get('/url', authenticateToken, async (req, res) => {
     const key = storage.normalizeKey(req.query.key);
     if (!key) return res.status(400).json({ message: 'Invalid file reference.' });
     if (!(await canAccess(req.user, key))) return res.status(404).json({ message: 'File not found or you do not have access to it.' });
+
+    const scanRes = await query('SELECT status FROM file_scans WHERE key = $1', [key]);
+    if (scanRes.rows[0]?.status !== 'clean') {
+      return res.status(409).json({ message: 'This file is still being checked.' });
+    }
     const url = await storage.getDownloadUrl(key, { expiresIn: 300 });
     if (!url) return res.status(404).json({ message: 'The requested document does not exist or has been removed.' });
     if (key.startsWith('documents/') || key.startsWith('resumes/')) audit(req, 'file.opened', 'file', key);
@@ -88,6 +93,11 @@ router.get('/local', async (req, res) => {
     if (storage.mode !== 'local') return res.status(404).end();
     const { key, exp, sig } = req.query;
     if (typeof key !== 'string' || !storage.verifyLocalSignature(key, exp, sig)) return res.status(403).json({ message: 'This link is invalid or has expired.' });
+
+    const scanRes = await query('SELECT status FROM file_scans WHERE key = $1', [key]);
+    if (scanRes.rows[0]?.status !== 'clean') {
+      return res.status(409).json({ message: 'This file is still being checked.' });
+    }
     const f = await storage.getStream(key);
     if (!f) return res.status(404).json({ message: 'File not found.' });
     res.set({

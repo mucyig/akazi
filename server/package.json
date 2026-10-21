@@ -10,12 +10,15 @@
     "create-admin": "node src/scripts/create-admin.js",
     "migrate-uploads": "node src/scripts/migrate-uploads-to-r2.js",
     "test": "node --test",
+    "backfill-scans": "node src/scripts/backfill-scans.js",
+    "reconcile-payments": "node src/scripts/reconcile-payments.js",
     "check-db": "node src/scripts/check-db.js",
     "check-paypack": "node src/scripts/check-paypack.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
     "@aws-sdk/s3-request-presigner": "^3.1149.0",
+    "adm-zip": "^0.6.1",
     "bcryptjs": "^3.0.2",
     "compression": "^1.7.5",
     "cors": "^2.8.5",

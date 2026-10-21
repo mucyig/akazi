@@ -93,7 +93,7 @@ const SEEKER = [
   { key: 'date_of_birth', q: { en: 'When were you born?', rw: 'Wavutse ryari?' }, type: 'date', req: true },
   { key: 'location', q: { en: 'Where do you live?', rw: 'Utuye he?' }, type: 'text', ph: 'e.g. Kigali, Gasabo', req: true, check: (v) => String(v || '').trim().length >= 3 || 'Please enter a valid location (at least 3 characters).' },
   { key: 'education_level', q: { en: "What's your highest education level?", rw: 'Ni ayahe mashuri wize cyane?' }, type: 'choice', options: EDU, req: true },
-  { key: 'resume', q: { en: 'Do you have a CV? Upload it (optional).', rw: 'Ufite CV? Yishyiremo (si itegeko).' }, type: 'file', accept: '.pdf,.doc,.docx' },
+  { key: 'resume', q: { en: 'Do you have a CV? Upload it (optional).', rw: 'Ufite CV? Yishyiremo (si itegeko).' }, type: 'file', accept: '.pdf,.docx' },
   { key: 'password', q: { en: 'Create a password', rw: 'Hitamo ijambo ry’ibanga' }, type: 'password', ph: '8+ characters, letters and numbers', req: true, check: (v) => (v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v)) || 'Use at least 8 characters with letters and numbers.' },
 ];
 const EMPLOYER = [

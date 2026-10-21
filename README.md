@@ -66,12 +66,38 @@ and set the **same** value as `PROXY_SECRET` on the API (Render). Without it the
 Production environment checklist (the server will not start if the first group is missing):
 `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL` (https), `R2_*`, `RESEND_API_KEY`, and `PAYPACK_WEBHOOK_SECRET` if PayPack is used. Also set `PAYPACK_CLIENT_ID`, `PAYPACK_CLIENT_SECRET`, `PROXY_SECRET`, `DATABASE_SSL=true` if your database requires it.
 
+## Document safety and virus scanning
+
+Uploads undergo multi-layer inspection before and after storage:
+
+- **Type allowlist:** Only `.pdf`, `.docx`, `.png`, `.jpg`, `.jpeg`, and `.webp` are supported (legacy `.doc` is rejected).
+- **Format inspection (`server/src/lib/filescan.js`):**
+  - PDF: rejects embedded scripts, actions, and files (`/JavaScript`, `/JS`, `/Launch`, `/OpenAction`, `/EmbeddedFile`, `/RichMedia`).
+  - DOCX: zip archive inspection; rejects macros (`vbaProject.bin`), embedded objects (`embeddings/`), scripts/executables (`.exe`, `.dll`, `.js`, etc.), external relationships (`TargetMode="External"`), path traversal (`..`, `/`), and zip bombs (>50MB uncompressed, >500 entries, or compression ratio >100:1).
+  - Images: verifies headers and rejects files with trailing injected payloads.
+- **Antivirus integration (`server/src/lib/scanner.js`):**
+  - Connects to ClamAV daemon via TCP INSTREAM protocol (`CLAMAV_HOST`, `CLAMAV_PORT`).
+  - In production, unscanned uploads remain quarantined unless `ALLOW_UNSCANNED_UPLOADS=true` is set.
+  - In development, scans default to clean if ClamAV is not configured.
+- **Quarantine & status (`file_scans` table):**
+  - Stored files record SHA-256 and status (`pending`, `clean`, `infected`, `error`).
+  - Downloads fail closed (`409 Conflict`) unless the file is explicitly marked `clean`.
+  - Infected uploads are deleted, logged to `audit_log`, and rejected with 400.
+  - Backfill existing files: `npm --prefix server run backfill-scans`.
+- **Duplicate registration document detection:**
+  - SHA-256 hashes of employer registration documents are checked to log `duplicate_registration_doc` in `audit_log` without blocking registration.
+- **Safe delivery:**
+  - Storage keys are cryptographically random.
+  - Signed URLs and downloads enforce `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`.
+
 ## Security summary
 
 - No secrets in the repository; configuration is validated at startup; no default JWT secret.
 - Passwords: bcrypt, 8 to 72 characters with a letter and a number, common passwords refused. Five wrong attempts lock the account for 15 minutes. Changing or resetting a password signs out every other session.
 - Password reset and email confirmation use single-use, expiring tokens; only a hash is stored. The reset form never reveals whether an email is registered.
 - PayPack webhooks need a valid HMAC signature, are confirmed against PayPack's API, must match the amount, and can only move a payment out of `pending` once.
+- Shared transactional settlement (`lib/settle-payment.js`) prevents race conditions, synchronizes payments and employers tables atomically, and self-heals desynced records.
+- Payment reconciliation (`lib/reconcile-payments.js`) can run via cron (`npm --prefix server run reconcile-payments`) or automatically via `RECONCILE_PAYMENTS_INTERVAL_MIN` protected by Postgres advisory locks.
 - Employers need admin approval and payment before posting or reviewing applicants. Admin actions are written to `audit_log` (`GET /api/admin/audit`).
 - Uploads are checked by real content, held in memory until validation passes, and stored privately.
 - API errors never include internal messages; responses are not cached.
@@ -81,4 +107,3 @@ Production environment checklist (the server will not start if the first group i
 - Two-factor authentication for admins.
 - Session in an httpOnly cookie instead of `localStorage` (needs CSRF protection).
 - Chat presence ("online now") is in server memory, so it resets on restart and assumes a single server.
-- Virus scanning of uploaded documents.

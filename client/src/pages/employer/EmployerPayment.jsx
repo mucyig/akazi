@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Smartphone, ShieldCheck, Loader2, CheckCircle2, XCircle,
-  Pencil, Sparkles, Lock, BadgeCheck, Wallet
+  Pencil, Sparkles, Lock, BadgeCheck, Wallet, Clock, RefreshCw
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,21 @@ const prettyPhone = (p) => {
   return local.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3');
 };
 
+// Polling schedule: 3s intervals for 0-60s, then 5s intervals up to 180s (3 minutes)
+const POLLING_SCHEDULE = [
+  { untilSeconds: 60, intervalMs: 3000 },
+  { untilSeconds: 180, intervalMs: 5000 },
+];
+const MAX_POLLING_DURATION_MS = 180 * 1000;
+const EXTRA_POLLING_DURATION_MS = 60 * 1000;
+const ERROR_BACKOFF_STEPS = [3000, 6000, 12000, 24000, 30000];
+
+function withJitter(ms) {
+  // +/- 20% random jitter
+  const delta = ms * 0.2 * (Math.random() * 2 - 1);
+  return Math.max(1000, Math.round(ms + delta));
+}
+
 export default function EmployerPayment() {
   const { employer, user, refreshUser } = useAuth();
   const { t, language } = useLanguage();
@@ -23,28 +38,113 @@ export default function EmployerPayment() {
   const phone = customPhone !== null ? customPhone : (employer?.phone || user?.phone || '');
   const setPhone = setCustomPhone;
   const [editing, setEditing] = useState(false);
-  const [phase, setPhase] = useState('confirm'); // confirm | pending | paid | failed
+  const [phase, setPhase] = useState('confirm'); // confirm | pending | timeout | paid | failed
   const currentPhase = employer?.payment_status === 'paid' ? 'paid' : phase;
   const [ref, setRef] = useState(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const pollRef = useRef(null);
+  const [checkingManual, setCheckingManual] = useState(false);
 
-  const stopPoll = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+  const timerRef = useRef(null);
+  const startTimeRef = useRef(0);
+  const maxDurationRef = useRef(MAX_POLLING_DURATION_MS);
+  const consecutiveErrorsRef = useRef(0);
+  const currentRef = useRef(null);
+  const isPollingRef = useRef(false);
 
-  const beginPolling = useCallback((paymentRef) => {
-    stopPoll();
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await api.get(`/payments/paypack/status/${paymentRef}`);
-        const s = res?.payment?.status;
-        if (s === 'paid') { stopPoll(); setPhase('paid'); await refreshUser(); }
-        else if (s === 'failed') { stopPoll(); setPhase('failed'); await refreshUser(); }
-      } catch { /* keep polling quietly */ }
-    }, 4000);
-  }, [refreshUser]);
+  const stopPolling = useCallback(() => {
+    isPollingRef.current = false;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
-  useEffect(() => () => stopPoll(), []);
+  const scheduleNext = useCallback((fn, delayMs) => {
+    if (!isPollingRef.current) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(fn, withJitter(delayMs));
+  }, []);
+
+  const pollCycle = useCallback(async () => {
+    if (!isPollingRef.current) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      // Paused while hidden; visibilitychange resumes immediately
+      return;
+    }
+
+    const elapsed = Date.now() - startTimeRef.current;
+    if (elapsed >= maxDurationRef.current) {
+      stopPolling();
+      setPhase('timeout');
+      return;
+    }
+
+    const paymentRef = currentRef.current;
+    if (!paymentRef) return;
+
+    try {
+      const res = await api.get(`/payments/paypack/status/${paymentRef}`);
+      consecutiveErrorsRef.current = 0; // reset error backoff on success
+      const s = res?.payment?.status;
+      if (s === 'paid') {
+        stopPolling();
+        setPhase('paid');
+        await refreshUser();
+        return;
+      }
+      if (s === 'failed') {
+        stopPolling();
+        setPhase('failed');
+        await refreshUser();
+        return;
+      }
+
+      // Still pending: check if duration expired
+      const nextElapsed = Date.now() - startTimeRef.current;
+      if (nextElapsed >= maxDurationRef.current) {
+        stopPolling();
+        setPhase('timeout');
+        return;
+      }
+
+      const elapsedSec = nextElapsed / 1000;
+      const tier = POLLING_SCHEDULE.find((item) => elapsedSec < item.untilSeconds) || POLLING_SCHEDULE[POLLING_SCHEDULE.length - 1];
+      scheduleNext(pollCycle, tier.intervalMs);
+    } catch {
+      consecutiveErrorsRef.current += 1;
+      const stepIdx = Math.min(consecutiveErrorsRef.current - 1, ERROR_BACKOFF_STEPS.length - 1);
+      const backoffDelay = ERROR_BACKOFF_STEPS[stepIdx];
+      scheduleNext(pollCycle, backoffDelay);
+    }
+  }, [refreshUser, scheduleNext, stopPolling]);
+
+  const beginPolling = useCallback((paymentRef, durationMs = MAX_POLLING_DURATION_MS) => {
+    stopPolling();
+    currentRef.current = paymentRef;
+    startTimeRef.current = Date.now();
+    maxDurationRef.current = durationMs;
+    consecutiveErrorsRef.current = 0;
+    isPollingRef.current = true;
+
+    // Start first poll after initial tier delay
+    scheduleNext(pollCycle, POLLING_SCHEDULE[0].intervalMs);
+  }, [pollCycle, scheduleNext, stopPolling]);
+
+  // Visibility change handling
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isPollingRef.current) {
+        // Run an immediate check when tab becomes active
+        pollCycle();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      stopPolling();
+    };
+  }, [pollCycle, stopPolling]);
 
   // Resume state on load (already paid, or a prompt still pending)
   useEffect(() => {
@@ -55,7 +155,11 @@ export default function EmployerPayment() {
         try {
           const res = await api.get('/payments/paypack/latest');
           const p = res?.payment;
-          if (p && p.status === 'pending') { setRef(p.ref); setPhase('pending'); beginPolling(p.ref); }
+          if (p && p.status === 'pending') {
+            setRef(p.ref);
+            setPhase('pending');
+            beginPolling(p.ref);
+          }
         } catch { /* ignore */ }
       })();
     }
@@ -97,14 +201,45 @@ export default function EmployerPayment() {
     }
   };
 
+  const handleManualCheck = async () => {
+    if (!ref || checkingManual) return;
+    setCheckingManual(true);
+    setError('');
+    try {
+      const res = await api.get(`/payments/paypack/status/${ref}`);
+      const s = res?.payment?.status;
+      if (s === 'paid') {
+        stopPolling();
+        setPhase('paid');
+        await refreshUser();
+        return;
+      }
+      if (s === 'failed') {
+        stopPolling();
+        setPhase('failed');
+        await refreshUser();
+        return;
+      }
+      // If still pending, restart polling for another minute
+      setPhase('pending');
+      beginPolling(ref, EXTRA_POLLING_DURATION_MS);
+    } catch (e) {
+      setError(e.message || t('employerPayment.genericError'));
+    } finally {
+      setCheckingManual(false);
+    }
+  };
+
   const amount = '5,000';
-  const progress = currentPhase === 'paid' ? 'w-full' : currentPhase === 'pending' ? 'w-11/12' : 'w-10/12';
+  const progress = currentPhase === 'paid' ? 'w-full' : (currentPhase === 'pending' || currentPhase === 'timeout') ? 'w-11/12' : 'w-10/12';
   const Heading = currentPhase === 'paid' ? t('employerPayment.paidTitle')
     : currentPhase === 'failed' ? t('employerPayment.failedTitle')
+    : currentPhase === 'timeout' ? t('employerPayment.timeoutTitle')
     : currentPhase === 'pending' ? t('employerPayment.pendingTitle')
     : t('employerPayment.title');
   const Sub = currentPhase === 'paid' ? t('employerPayment.paidDesc')
     : currentPhase === 'failed' ? t('employerPayment.failedDesc')
+    : currentPhase === 'timeout' ? t('employerPayment.timeoutDesc')
     : currentPhase === 'pending' ? t('employerPayment.pendingDesc', { phone: prettyPhone(phone) })
     : t('employerPayment.subtitle');
 
@@ -179,7 +314,37 @@ export default function EmployerPayment() {
           </div>
           {ref && <p className="text-[11px] text-zinc-400">Ref: <span className="font-mono">{String(ref).slice(0, 8)}…</span></p>}
           <div className="flex items-center justify-center gap-3 pt-1">
-            <button onClick={() => { stopPoll(); setPhase('confirm'); }} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">{t('employerPayment.retry')}</button>
+            <button onClick={() => { stopPolling(); setPhase('confirm'); setError(''); }} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">{t('employerPayment.retry')}</button>
+          </div>
+        </div>
+      )}
+
+      {currentPhase === 'timeout' && (
+        <div className="text-center space-y-5 py-2">
+          <div className="mx-auto w-20 h-20 rounded-full bg-amber-50 grid place-items-center">
+            <Clock className="w-10 h-10 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">{t('employerPayment.timeoutTitle')}</p>
+            <p className="mt-1.5 text-xs text-zinc-500 leading-relaxed max-w-sm mx-auto">{t('employerPayment.timeoutDesc')}</p>
+          </div>
+          {ref && <p className="text-[11px] text-zinc-400">Ref: <span className="font-mono">{String(ref).slice(0, 8)}…</span></p>}
+          {error && <p role="alert" className="text-sm font-medium text-red-600">{error}</p>}
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={handleManualCheck}
+              disabled={checkingManual}
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-blue-800 hover:bg-blue-900 text-white font-semibold shadow-lg shadow-blue-900/20 disabled:opacity-60 transition"
+            >
+              {checkingManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {checkingManual ? t('employerPayment.checking') : t('employerPayment.checkStatusBtn')}
+            </button>
+            <button
+              onClick={() => { stopPolling(); setPhase('confirm'); setError(''); }}
+              className="w-full py-2.5 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition"
+            >
+              {t('employerPayment.retry')}
+            </button>
           </div>
         </div>
       )}
@@ -201,7 +366,7 @@ export default function EmployerPayment() {
           <div className="mx-auto w-20 h-20 rounded-full bg-red-50 grid place-items-center">
             <XCircle className="w-10 h-10 text-red-500" />
           </div>
-          <button onClick={() => { setPhase('confirm'); setError(''); }}
+          <button onClick={() => { stopPolling(); setPhase('confirm'); setError(''); }}
             className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-blue-800 hover:bg-blue-900 text-white font-semibold">
             <Lock className="w-4 h-4" /> {t('employerPayment.tryAgain')}
           </button>
@@ -229,6 +394,7 @@ export default function EmployerPayment() {
             <div className="w-12 h-12 rounded-2xl bg-white/10 ring-1 ring-white/20 grid place-items-center shrink-0">
               {currentPhase === 'paid' ? <CheckCircle2 className="w-6 h-6 text-emerald-400" />
                 : currentPhase === 'failed' ? <XCircle className="w-6 h-6 text-red-300" />
+                : currentPhase === 'timeout' ? <Clock className="w-6 h-6 text-amber-400" />
                 : <Wallet className="w-6 h-6 text-blue-200" />}
             </div>
             <div>

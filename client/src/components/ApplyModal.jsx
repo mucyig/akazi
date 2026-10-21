@@ -414,7 +414,7 @@ export default function ApplyModal({ job, onClose, onSuccess }) {
                   {(!profile?.resume_url || !useProfileResume) && (
                     <input
                       type="file"
-                      accept=".pdf,.doc,.docx"
+                      accept=".pdf,.docx"
                       onChange={(e) => setResumeFile(e.target.files[0])}
                       className="block w-full text-xs text-zinc-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer"
                     />
