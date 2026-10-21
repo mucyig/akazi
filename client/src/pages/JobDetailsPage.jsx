@@ -22,6 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import ApplyModal from '../components/ApplyModal';
 import ReportJobModal from '../components/ReportJobModal';
+import { isJobReported, markJobReported } from '../utils/reportedJobs';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { formatSalary } from '../utils/format';
 
@@ -38,6 +39,7 @@ export default function JobDetailsPage() {
   const [error, setError] = useState('');
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [hasReported, setHasReported] = useState(false);
   const [copied, setCopied] = useState(false);
 
   usePageTitle(job ? `${job.title} · ${job.company_name}` : (language === 'rw' ? 'Umurimo' : 'Job Details'));
@@ -72,6 +74,7 @@ export default function JobDetailsPage() {
         setJob(data.job);
         setHasApplied(data.has_applied);
         setApplication(data.application);
+        setHasReported(Boolean(data.has_reported || isJobReported(id)));
       } catch (err) {
         setError(err.message || 'Job opening not found.');
       } finally {
@@ -79,6 +82,10 @@ export default function JobDetailsPage() {
       }
     }
     loadJob();
+    const onJobReported = (e) => {
+      if (e.detail?.jobId === Number(id)) setHasReported(true);
+    };
+    window.addEventListener('akazi_job_reported', onJobReported);
   }, [id]);
 
   const handleApplyClick = () => {
@@ -193,6 +200,7 @@ export default function JobDetailsPage() {
           </Link>
 
           <div className="flex items-center gap-2">
+            {!hasReported ? (
             <button
               type="button"
               onClick={() => setReportModalOpen(true)}
@@ -202,6 +210,12 @@ export default function JobDetailsPage() {
               <Flag className="w-3.5 h-3.5 text-zinc-400 group-hover:text-red-600 transition-colors" />
               <span>{t('jobDetails.reportJob')}</span>
             </button>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-xs font-semibold text-emerald-800">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{language === 'rw' ? 'Raporo yatanzwe' : 'Reported'}</span>
+              </span>
+            )}
 
           <button
             type="button"
@@ -406,20 +420,27 @@ export default function JobDetailsPage() {
 
             {/* Trust & Safety Reporting Notice */}
             <section className="pt-6 border-t border-zinc-100">
-              <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex items-start sm:flex-center gap-2.5 text-zinc-600">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
-                  <span>{t('jobDetails.reportNotice')}</span>
+              {!hasReported ? (
+                <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-start sm:flex-center gap-2.5 text-zinc-600">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+                    <span>{t('jobDetails.reportNotice')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReportModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 font-semibold text-red-600 hover:text-red-700 hover:underline shrink-0"
+                  >
+                    <Flag className="w-3.5 h-3.5 text-red-500" />
+                    <span>{t('jobDetails.reportLink')}</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setReportModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 font-semibold text-red-600 hover:text-red-700 hover:underline shrink-0"
-                >
-                  <Flag className="w-3.5 h-3.5 text-red-500" />
-                  <span>{t('jobDetails.reportLink')}</span>
-                </button>
-              </div>
+              ) : (
+                <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/70 p-4 flex items-center gap-2.5 text-xs text-emerald-900">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{language === 'rw' ? 'Wamaze gutanga raporo kuri iri tangazo. Itsinda riracyarisuzuma.' : 'You have reported this job listing. Our moderation team is actively reviewing it.'}</span>
+                </div>
+              )}
             </section>
 
             {/* Bottom Apply Action */}
@@ -469,6 +490,7 @@ export default function JobDetailsPage() {
         <ReportJobModal
           job={job}
           onClose={() => setReportModalOpen(false)}
+          onReportSuccess={() => { setHasReported(true); markJobReported(job?.id); }}
         />
       )}
     </div>

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { markJobReported } from '../utils/reportedJobs';
 
 const REASON_ICONS = {
   payment_fee: DollarSign,
@@ -53,6 +54,7 @@ export default function ReportJobModal({ job, onClose, onReportSuccess }) {
         details: details.trim() || undefined,
       });
 
+      markJobReported(job?.id);
       if (res.already_reported) {
         setAlreadyReported(true);
       } else {

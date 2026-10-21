@@ -7,6 +7,7 @@ import { formatRelativeTime } from '../utils/time';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { formatSalary } from '../utils/format';
 import ReportJobModal from '../components/ReportJobModal';
+import { getReportedJobIds, markJobReported } from '../utils/reportedJobs';
 
 const GENERAL_RWANDA_JOB_TERMS = [
   'akazi mu rwanda', 'job in rwanda', 'jobs in rwanda',
@@ -33,6 +34,15 @@ export default function JobsPage() {
   const [loc, setLoc] = useState('all');
   const [openKeys, setOpenKeys] = useState(() => new Set());
   const [reportingJob, setReportingJob] = useState(null);
+  const [reportedJobIds, setReportedJobIds] = useState(() => new Set(getReportedJobIds()));
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.jobId) setReportedJobIds((prev) => new Set([...prev, Number(e.detail.jobId)]));
+    };
+    window.addEventListener('akazi_job_reported', handler);
+    return () => window.removeEventListener('akazi_job_reported', handler);
+  }, []);
 
   useEffect(() => {
     api.get('/jobs').then((d) => setJobs(d.jobs || [])).catch(() => setFailed(true)).finally(() => setLoading(false));
@@ -201,6 +211,7 @@ export default function JobsPage() {
                           <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, j.job_type, formatSalary(j.salary_range), formatRelativeTime(j.created_at, language)].filter(Boolean).join(' · ')}</span>
                         </Link>
                         <div className="flex items-center gap-2 shrink-0">
+                          {!reportedJobIds.has(Number(j.id)) && (
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setReportingJob(j); }}
@@ -210,6 +221,7 @@ export default function JobsPage() {
                           >
                             <Flag className="w-3.5 h-3.5" />
                           </button>
+                          )}
                           <Link to={`/jobs/${j.id}`} className="text-sm font-semibold text-blue-800 inline-flex items-center gap-1">
                             {tr('View','Reba')} <ArrowRight className="w-4 h-4" />
                           </Link>
@@ -228,6 +240,7 @@ export default function JobsPage() {
         <ReportJobModal
           job={reportingJob}
           onClose={() => setReportingJob(null)}
+          onReportSuccess={() => { if (reportingJob) { markJobReported(reportingJob.id); setReportedJobIds((prev) => new Set([...prev, Number(reportingJob.id)])); } }}
         />
       )}
     </div>

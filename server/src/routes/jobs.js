@@ -147,9 +147,20 @@ router.get('/:id', optionalAuth, async (req, res) => {
       application = a.rows[0] || null;
     }
     const count = await query('SELECT COUNT(*)::int AS n FROM applications WHERE job_id = $1', [jobId]);
+    let hasReported = false;
+    if (req.user) {
+      const rep = await query('SELECT 1 FROM reports WHERE job_id = $1 AND user_id = $2 LIMIT 1', [jobId, req.user.id]);
+      hasReported = rep.rowCount > 0;
+    } else {
+      const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+      if (clientIp) {
+        const rep = await query('SELECT 1 FROM reports WHERE job_id = $1 AND client_ip = $2 LIMIT 1', [jobId, clientIp]);
+        hasReported = rep.rowCount > 0;
+      }
+    }
     const { employer_user_id, employer_status, ...job } = row;
     if (!req.user) res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
-    res.json({ job: { ...job, ...(isOwner ? { employer_user_id } : {}), applicant_count: count.rows[0].n }, has_applied: !!application, application });
+    res.json({ job: { ...job, ...(isOwner ? { employer_user_id } : {}), applicant_count: count.rows[0].n }, has_applied: !!application, has_reported: hasReported, application });
   } catch (err) {
     console.error('Get job details error:', err.message);
     res.status(500).json({ message: 'Error retrieving job posting.' });

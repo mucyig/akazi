@@ -455,6 +455,127 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Tab 5: Community Reports */}
+        {activeTab === 'reports' && (
+          <div className="space-y-4">
+            {reports.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center shadow-xs">
+                <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center mx-auto mb-3 text-zinc-400">
+                  <Flag className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-zinc-950 text-base">
+                  {t('admin.emptyReports') || 'No reports found.'}
+                </h3>
+                <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
+                  {t('admin.emptyReportsDesc') || 'There are no active job reports from the community at this time.'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+                <div className="divide-y divide-zinc-100">
+                  {reports.map((rep) => {
+                    const isPending = rep.status === 'pending';
+                    return (
+                      <div key={rep.id} className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-zinc-50/50 transition">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                              rep.status === 'pending'
+                                ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                                : rep.status === 'action_taken'
+                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                : 'bg-zinc-100 text-zinc-600 border border-zinc-200'
+                            }`}>
+                              {rep.status === 'pending' && <Clock className="w-3 h-3 text-amber-600" />}
+                              {rep.status === 'action_taken' && <XCircle className="w-3 h-3 text-red-600" />}
+                              {rep.status === 'dismissed' && <CheckCircle2 className="w-3 h-3 text-zinc-500" />}
+                              <span>
+                                {rep.status === 'pending' ? (t('admin.statusPending') || 'Pending Review') :
+                                 rep.status === 'action_taken' ? (t('admin.statusActionTaken') || 'Job Removed') :
+                                 (t('admin.statusDismissed') || 'Dismissed')}
+                              </span>
+                            </span>
+
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100">
+                              <AlertTriangle className="w-3 h-3 text-red-500" />
+                              <span>{t(`reportModal.reasons.${rep.reason}`) || rep.reason}</span>
+                            </span>
+
+                            <span className="text-xs text-zinc-400">
+                              {rep.created_at ? formatDate(rep.created_at) : ''}
+                            </span>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-zinc-950 text-sm">
+                                {rep.job_title || `Job #${rep.job_id}`}
+                              </span>
+                              {rep.company_name && (
+                                <span className="text-zinc-500 text-xs font-medium">
+                                  at {rep.company_name}
+                                </span>
+                              )}
+                              {rep.job_id && (
+                                <a
+                                  href={`/jobs/${rep.job_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline"
+                                >
+                                  <span>View Job</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-zinc-500 mt-0.5">
+                              <span>Reporter: </span>
+                              <span className="font-medium text-zinc-700">
+                                {rep.reporter_name ? `${rep.reporter_name} (${rep.reporter_email || ''})` : 'Anonymous / Job Seeker'}
+                              </span>
+                              {rep.client_ip && <span className="text-zinc-400 ml-2">IP: {rep.client_ip}</span>}
+                            </p>
+                          </div>
+
+                          {rep.details && (
+                            <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-100 text-xs text-zinc-700 leading-relaxed">
+                              <span className="font-semibold text-zinc-900">{t('admin.reportDetails') || 'Details'}: </span>
+                              <span>{rep.details}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {isPending && (
+                          <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0">
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => handleReportAction(rep.id, 'dismissed')}
+                              className="px-3.5 py-2 text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 rounded-xl transition disabled:opacity-50"
+                            >
+                              {t('admin.dismissReport') || 'Dismiss'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => handleReportAction(rep.id, 'action_taken', true)}
+                              className="px-3.5 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition shadow-xs disabled:opacity-50 inline-flex items-center gap-1.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>{t('admin.takeDownReportJob') || 'Remove Job'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Decline Reason Modal */}

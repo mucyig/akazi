@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, CheckCircle2, XCircle, Clock3, ArrowRight, ChevronRight, Briefcase, Sparkles, Flag } from 'lucide-react';
+import { MapPin, CheckCircle2, Check, XCircle, Clock3, ArrowRight, ChevronRight, Briefcase, Sparkles, Flag } from 'lucide-react';
 import { MessageButton } from '../components/ChatDock';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useNotifications } from '../context/NotificationContext';
 import InterviewLocation from '../components/InterviewLocation';
 import ReportJobModal from '../components/ReportJobModal';
+import { getReportedJobIds, markJobReported } from '../utils/reportedJobs';
 import { formatDate, kigaliParts } from '../utils/time';
 import { usePageTitle } from '../hooks/usePageTitle';
 
@@ -70,6 +71,15 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [fresh, setFresh] = useState(() => new Set()); // results that were new when this page opened
   const [reportingJob, setReportingJob] = useState(null);
+  const [reportedJobIds, setReportedJobIds] = useState(() => new Set(getReportedJobIds()));
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.jobId) setReportedJobIds((prev) => new Set([...prev, Number(e.detail.jobId)]));
+    };
+    window.addEventListener('akazi_job_reported', handler);
+    return () => window.removeEventListener('akazi_job_reported', handler);
+  }, []);
 
   useEffect(() => {
     if (!user) { navigate('/login?redirect=/applications'); return; }
@@ -179,6 +189,7 @@ export default function ApplicationsPage() {
                     )}
 
                     <div className="mt-5 pt-4 border-t border-zinc-100 flex items-center justify-between">
+                      {!reportedJobIds.has(Number(app.job_id)) ? (
                       <button
                         type="button"
                         onClick={() => setReportingJob({ id: app.job_id, title: app.job_title, company_name: app.company_name })}
@@ -187,6 +198,12 @@ export default function ApplicationsPage() {
                         <Flag className="w-3.5 h-3.5 text-zinc-400" />
                         <span>{t('jobDetails.reportJob')}</span>
                       </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/70">
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>{tr('Reported', 'Yatangiwe raporo')}</span>
+                        </span>
+                      )}
                       <Link to={`/jobs/${app.job_id}`} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-800 hover:text-blue-950">
                         {t('home.viewJobDetails')}<ChevronRight className="w-4 h-4" />
                       </Link>
@@ -203,6 +220,7 @@ export default function ApplicationsPage() {
         <ReportJobModal
           job={reportingJob}
           onClose={() => setReportingJob(null)}
+          onReportSuccess={() => { if (reportingJob) { markJobReported(reportingJob.id); setReportedJobIds((prev) => new Set([...prev, Number(reportingJob.id)])); } }}
         />
       )}
     </div>
