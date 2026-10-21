@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, MapPin, ChevronDown, BadgeCheck, ArrowRight, X } from 'lucide-react';
+import { Search, MapPin, ChevronDown, BadgeCheck, ArrowRight, X, Flag } from 'lucide-react';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import { formatRelativeTime } from '../utils/time';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { formatSalary } from '../utils/format';
+import ReportJobModal from '../components/ReportJobModal';
 
 const GENERAL_RWANDA_JOB_TERMS = [
   'akazi mu rwanda', 'job in rwanda', 'jobs in rwanda',
@@ -31,6 +32,7 @@ export default function JobsPage() {
   const [q, setQ] = useState(params.get('q') || '');
   const [loc, setLoc] = useState('all');
   const [openKeys, setOpenKeys] = useState(() => new Set());
+  const [reportingJob, setReportingJob] = useState(null);
 
   useEffect(() => {
     api.get('/jobs').then((d) => setJobs(d.jobs || [])).catch(() => setFailed(true)).finally(() => setLoading(false));
@@ -193,13 +195,26 @@ export default function JobsPage() {
                 <ul className="border-t rule">
                   {g.positions.map((j) => (
                     <li key={j.id} className="border-b rule last:border-0">
-                      <Link to={`/jobs/${j.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-blue-50/50 group">
-                        <span className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-blue-50/50 group">
+                        <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0">
                           <span className="block font-semibold text-zinc-900 group-hover:text-blue-800">{j.title}</span>
                           <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, j.job_type, formatSalary(j.salary_range), formatRelativeTime(j.created_at, language)].filter(Boolean).join(' · ')}</span>
-                        </span>
-                        <span className="text-sm font-semibold text-blue-800 inline-flex items-center gap-1">{tr('View','Reba')} <ArrowRight className="w-4 h-4" /></span>
-                      </Link>
+                        </Link>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setReportingJob(j); }}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition"
+                            title={language === 'rw' ? 'Tanga raporo' : 'Report this job'}
+                            aria-label={language === 'rw' ? 'Tanga raporo' : 'Report this job'}
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                          </button>
+                          <Link to={`/jobs/${j.id}`} className="text-sm font-semibold text-blue-800 inline-flex items-center gap-1">
+                            {tr('View','Reba')} <ArrowRight className="w-4 h-4" />
+                          </Link>
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -208,6 +223,13 @@ export default function JobsPage() {
           );
         })}
       </div>
+
+      {reportingJob && (
+        <ReportJobModal
+          job={reportingJob}
+          onClose={() => setReportingJob(null)}
+        />
+      )}
     </div>
   );
 }

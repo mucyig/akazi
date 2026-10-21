@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, CheckCircle2, XCircle, Clock3, ArrowRight, ChevronRight, Briefcase, Sparkles } from 'lucide-react';
+import { MapPin, CheckCircle2, XCircle, Clock3, ArrowRight, ChevronRight, Briefcase, Sparkles, Flag } from 'lucide-react';
 import { MessageButton } from '../components/ChatDock';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotifications } from '../context/NotificationContext';
 import InterviewLocation from '../components/InterviewLocation';
+import ReportJobModal from '../components/ReportJobModal';
 import { formatDate, kigaliParts } from '../utils/time';
 import { usePageTitle } from '../hooks/usePageTitle';
 
@@ -68,6 +69,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fresh, setFresh] = useState(() => new Set()); // results that were new when this page opened
+  const [reportingJob, setReportingJob] = useState(null);
 
   useEffect(() => {
     if (!user) { navigate('/login?redirect=/applications'); return; }
@@ -176,7 +178,15 @@ export default function ApplicationsPage() {
                       </div>
                     )}
 
-                    <div className="mt-5 flex justify-end">
+                    <div className="mt-5 pt-4 border-t border-zinc-100 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setReportingJob({ id: app.job_id, title: app.job_title, company_name: app.company_name })}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-red-600 transition"
+                      >
+                        <Flag className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>{t('jobDetails.reportJob')}</span>
+                      </button>
                       <Link to={`/jobs/${app.job_id}`} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-800 hover:text-blue-950">
                         {t('home.viewJobDetails')}<ChevronRight className="w-4 h-4" />
                       </Link>
@@ -188,6 +198,13 @@ export default function ApplicationsPage() {
           </ul>
         )}
       </div>
+
+      {reportingJob && (
+        <ReportJobModal
+          job={reportingJob}
+          onClose={() => setReportingJob(null)}
+        />
+      )}
     </div>
   );
 }

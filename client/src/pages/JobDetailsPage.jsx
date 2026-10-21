@@ -192,6 +192,17 @@ export default function JobDetailsPage() {
             <span>{t('jobDetails.back')}</span>
           </Link>
 
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setReportModalOpen(true)}
+              aria-label={t('jobDetails.reportJob')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-200 bg-white hover:border-red-300 hover:bg-red-50/50 hover:text-red-700 text-xs font-semibold text-zinc-700 transition active:scale-95 shadow-2xs group"
+            >
+              <Flag className="w-3.5 h-3.5 text-zinc-400 group-hover:text-red-600 transition-colors" />
+              <span>{t('jobDetails.reportJob')}</span>
+            </button>
+
           <button
             type="button"
             onClick={handleShare}
@@ -210,6 +221,7 @@ export default function JobDetailsPage() {
               </>
             )}
           </button>
+          </div>
         </div>
 
         {/* Document-style Card */}
@@ -392,6 +404,24 @@ export default function JobDetailsPage() {
               </div>
             </section>
 
+            {/* Trust & Safety Reporting Notice */}
+            <section className="pt-6 border-t border-zinc-100">
+              <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-start sm:flex-center gap-2.5 text-zinc-600">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+                  <span>{t('jobDetails.reportNotice')}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReportModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 font-semibold text-red-600 hover:text-red-700 hover:underline shrink-0"
+                >
+                  <Flag className="w-3.5 h-3.5 text-red-500" />
+                  <span>{t('jobDetails.reportLink')}</span>
+                </button>
+              </div>
+            </section>
+
             {/* Bottom Apply Action */}
             <div className="pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-zinc-500">
@@ -431,6 +461,14 @@ export default function JobDetailsPage() {
           job={job}
           onClose={() => setApplyModalOpen(false)}
           onSuccess={handleApplySuccess}
+        />
+      )}
+
+      {/* Community Report Modal */}
+      {reportModalOpen && (
+        <ReportJobModal
+          job={job}
+          onClose={() => setReportModalOpen(false)}
         />
       )}
     </div>
