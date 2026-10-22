@@ -12,6 +12,7 @@ initDb()
   })
   .catch((err) => {
     // No silent fallback: a server without its real database must not pretend to work.
-    console.error('[Fatal] Could not start the database:', err.message);
+    const detail = err.errors ? err.errors.map(e => e.message || e.code).join('; ') : (err.message || err.code || String(err));
+    console.error('[Fatal] Could not start the database:', detail);
     process.exit(1);
   });
