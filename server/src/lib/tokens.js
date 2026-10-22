@@ -25,6 +25,16 @@ async function consumeToken(raw, purpose) {
   return r.rows[0] ? r.rows[0].user_id : null;
 }
 
+// Looks at a token WITHOUT spending it. Returns the user id, or null if it is wrong, expired or already used.
+async function peekToken(raw, purpose) {
+  if (typeof raw !== 'string' || !/^[a-f0-9]{64}$/.test(raw)) return null;
+  const r = await query(
+    'SELECT user_id FROM auth_tokens WHERE token_hash = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()',
+    [sha256(raw), purpose]
+  );
+  return r.rows[0] ? r.rows[0].user_id : null;
+}
+
 async function recentTokenCount(userId, purpose, minutes) {
   const r = await query(
     "SELECT COUNT(*)::int AS n FROM auth_tokens WHERE user_id = $1 AND purpose = $2 AND created_at > NOW() - ($3 || ' minutes')::interval",
@@ -33,4 +43,4 @@ async function recentTokenCount(userId, purpose, minutes) {
   return r.rows[0].n;
 }
 
-module.exports = { createToken, consumeToken, recentTokenCount, sha256 };
+module.exports = { createToken, consumeToken, peekToken, recentTokenCount, sha256 };

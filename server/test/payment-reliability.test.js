@@ -3,12 +3,16 @@ const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
+// Safety: these tests write data, so they only ever use TEST_DATABASE_URL, never the DATABASE_URL from server/.env
+process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(48).toString('hex');
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://unused:unused@127.0.0.1:1/unused';
+
 require('../src/lib/env');
 const paypack = require('../src/lib/paypack');
 const { settlePayment } = require('../src/lib/settle-payment');
 const { reconcilePayments } = require('../src/lib/reconcile-payments');
 
-const testDbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const testDbUrl = process.env.TEST_DATABASE_URL;
 let dbAvailable = false;
 let query = null;
 let initDb = null;

@@ -89,6 +89,31 @@ async function reconcilePayments() {
     }
   }
 
+  // 2b. Payments we expired in the last 24h: the customer may still have paid, so ask PayPack again
+  try {
+    const expired = await query(
+      `SELECT * FROM payments WHERE status = 'failed' AND provider_status = 'expired' AND ref IS NOT NULL
+         AND updated_at > NOW() - INTERVAL '24 hours' ORDER BY updated_at DESC LIMIT 20`
+    );
+    for (const p of expired.rows) {
+      try {
+        const live = await paypack.findTransaction(p.ref);
+        const confirmed = live?.data || live;
+        if (!confirmed) continue;
+        const info = buildWebhookUpdatePayload(confirmed, JSON.stringify(confirmed));
+        if (info.status === 'paid') {
+          const res = await settlePayment(p.ref, confirmed, JSON.stringify(confirmed), { source: 'reconcile' });
+          if (res?.settled) summary.settled++;
+        }
+      } catch (err) {
+        console.warn(`[Reconcile] Could not re-check expired payment ${p.ref}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[Reconcile] Error re-checking expired payments:', err.message);
+    summary.errors++;
+  }
+
   // 3. Repair any paid payments whose employer is not marked 'paid'
   try {
     const desynced = await query(

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const { authenticateToken, requireRole, requireActiveEmployer, requireVerifiedEmail } = require('../middleware/auth');
-const { upload, storeUpload } = require('../middleware/upload');
+const { upload, storeUpload, discardUploads } = require('../middleware/upload');
 const storage = require('../lib/storage');
 const { cleanStr, checkFullName, validatePhone, normalizePhone, safeJson, isPgUnique } = require('../lib/validate');
 const { kigaliToInstant, isValidYmd, formatKigali, TZ } = require('../lib/time');
@@ -35,7 +35,7 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
       if (!Number.isInteger(jobId)) return res.status(400).json({ message: 'job_id is required.' });
 
       const jobRes = await query(
-        `SELECT j.id, j.title, j.deadline, e.company_name, e.user_id AS employer_user_id
+        `SELECT j.id, j.title, j.deadline, j.custom_fields, e.company_name, e.user_id AS employer_user_id
          FROM jobs j JOIN employers e ON j.employer_id = e.id JOIN users u ON u.id = e.user_id
          WHERE j.id = $1 AND j.status = 'active' AND u.status = 'approved'
            AND (j.deadline IS NULL OR j.deadline >= (NOW() AT TIME ZONE 'Africa/Kigali')::date)`, [jobId]);
@@ -59,6 +59,18 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
         const phoneErr = validatePhone(parsed.phone);
         if (phoneErr) return res.status(400).json({ message: `Phone: ${phoneErr}` });
         parsed.phone = normalizePhone(parsed.phone);
+      }
+
+      // Required custom questions set by the employer must be answered (the form checks this too, the server must as well)
+      const NON_QUESTION_IDS = ['require_cv', 'require_id', 'require_cert', 'require_experience'];
+      const jobFields = Array.isArray(job.custom_fields) ? job.custom_fields : safeJson(job.custom_fields, []);
+      const answers = parsed.answers && typeof parsed.answers === 'object' && !Array.isArray(parsed.answers) ? parsed.answers : {};
+      for (const f of Array.isArray(jobFields) ? jobFields : []) {
+        if (!f || !f.required || NON_QUESTION_IDS.includes(f.id) || f.type === 'cv' || f.type === 'certificate') continue;
+        const a = answers[f.id];
+        if (a === undefined || a === null || String(a).trim() === '') {
+          return res.status(400).json({ message: 'Please answer all the required questions for this job.' });
+        }
       }
 
       const profile = (await query('SELECT gender, resume_url FROM job_seekers WHERE user_id = $1', [req.user.id])).rows[0] || {};
@@ -87,7 +99,7 @@ router.post('/', authenticateToken, requireRole('employee'), requireVerifiedEmai
 
       res.status(201).json({ message: 'Application submitted successfully!', application: ins.rows[0] });
     } catch (err) {
-      if (stored.length) await storage.remove(stored);
+      if (stored.length) await discardUploads(stored);
       if (err.status) return res.status(err.status).json({ message: err.message });
       if (isPgUnique(err)) return res.status(409).json({ message: 'You have already submitted an application for this position.' });
       console.error('Submit application error:', err.message);

@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const { query } = require('../db');
 const { JWT_SECRET, JWT_EXPIRES_IN, REQUIRE_EMAIL_VERIFICATION } = require('../lib/env');
 
-const USER_COLS = 'id, role, status, name, email, phone, email_verified_at, password_changed_at';
+const USER_COLS = 'id, role, status, name, email, phone, email_verified_at, password_changed_at, created_at';
 
 const toPublicUser = (u) => ({
   id: u.id, role: u.role, status: u.status, name: u.name, email: u.email, phone: u.phone,

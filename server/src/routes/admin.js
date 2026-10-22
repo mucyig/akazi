@@ -102,8 +102,9 @@ router.patch('/users/:id/status', async (req, res) => {
     const t = (await query('SELECT id, role, status FROM users WHERE id = $1', [userId])).rows[0];
     if (!t) return res.status(404).json({ message: 'User not found.' });
     if (t.role === 'admin') return res.status(403).json({ message: 'Administrator accounts cannot be changed here.' });
-    if (status === 'approved' && ['pending', 'rejected'].includes(t.status)) {
-      return res.status(400).json({ message: 'Use the employer verification review to approve this account.' });
+    if (['pending', 'rejected'].includes(t.status)) {
+      // Pending/rejected accounts only change through the verification review: otherwise suspend -> reactivate would skip it
+      return res.status(400).json({ message: 'Use the employer verification review to approve or decline this account.' });
     }
     await query('UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2', [status, userId]);
     audit(req, `user.${status === 'suspended' ? 'suspended' : 'reactivated'}`, 'user', userId);
@@ -207,7 +208,8 @@ router.patch('/reports/:id', async (req, res) => {
     if (!report) return res.status(404).json({ message: 'Report not found.' });
 
     if (takeDownJob && report.job_id) {
-      await query('DELETE FROM jobs WHERE id = $1', [report.job_id]);
+      // Hide the job instead of deleting it: deleting would also erase this report and every candidate's application and chat
+      await query("UPDATE jobs SET status = 'removed', updated_at = NOW() WHERE id = $1", [report.job_id]);
       if (report.employer_user_id) {
         await notify(
           report.employer_user_id,

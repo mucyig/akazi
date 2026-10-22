@@ -92,5 +92,19 @@ To prevent identity spoofing, duplicate applications under altered demographics,
 - **Other:** chat moved to the database with rate limiting; jobs filtering and pagination in SQL; ownership checks (notifications, jobs, applications); admin action audit log; no internal error text leaks; worker passes the real visitor IP using a shared secret.
 - **Reporting:** community job reporting (`reports` table, rate-limited `POST /api/jobs/:id/report`, anti-duplicate protection, bilingual modal with reason selection, and admin moderation dashboard to review, dismiss, or take down fraudulent listings).
 
+## Bug-fix round (full end-to-end review)
 
-https://craydel.com/universities/malaysia/inti-international-university/1626840380 zaboro zo kwaplayyinga mhn
+Server-only changes. No client/UI files were modified.
+
+- **Moderation take-down** now hides the job (`status = 'removed'`) instead of deleting it, so the report, candidates' applications and chats are kept. Employers cannot re-open a removed job.
+- **Suspend/reactivate** can no longer be used to approve a pending or rejected employer (they only change through the verification review).
+- **Late payments:** a provider-confirmed "successful" payment now activates the employer even if we had already expired it; reconciliation re-checks payments expired in the last 24h.
+- **Double charge guard:** before sending a new payment prompt, earlier pending prompts are checked with PayPack (paid -> activate, still pending -> ask to wait).
+- **Payment amount** must be present and equal to the expected fee before a payment is accepted as paid.
+- **Required custom questions** of a job are enforced by the server when applying.
+- **No orphan uploads:** contact person and logo type are validated before files are stored; failed requests remove their files and `file_scans` rows.
+- `/api/auth/me` returns `created_at`; job list `total` is correct past the last page; `has_reported` uses the trusted client IP with the same 24h window as reporting and guest job pages are no longer publicly cacheable.
+- Date of birth older than 120 years is rejected; password reset also rejects a password equal to the email; company logo must be PNG/JPG/WEBP.
+- Editing/deleting a job now needs an active, paid employer (like creating one); a job edit cannot set a past deadline.
+- Files whose virus scan could not run show a clearer message.
+- Tests: `payment-reliability` and `upload-security` only use `TEST_DATABASE_URL` (never the `.env` database); new `test/e2e-full.test.js` journeys + bug regression tests.

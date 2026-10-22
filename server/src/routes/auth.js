@@ -5,12 +5,12 @@ const router = express.Router();
 
 const { query, withTransaction } = require('../db');
 const { generateToken, toPublicUser, authenticateToken } = require('../middleware/auth');
-const { upload, storeUpload } = require('../middleware/upload');
+const { upload, storeUpload, discardUploads } = require('../middleware/upload');
 const { findDuplicateDoc } = require('../lib/filescan');
 const storage = require('../lib/storage');
 const { ageOn, isValidYmd } = require('../lib/time');
 const { cleanStr, checkFullName, checkEmail, checkPassword, checkEmailAndPassword, normalizeUrl, checkPhone, validatePhone, normalizePhone, isPgUnique } = require('../lib/validate');
-const { createToken, consumeToken, recentTokenCount } = require('../lib/tokens');
+const { createToken, consumeToken, peekToken, recentTokenCount } = require('../lib/tokens');
 const { sendMailLater, link } = require('../lib/mailer');
 const { audit } = require('../lib/audit');
 const { isProd } = require('../lib/env');
@@ -57,12 +57,22 @@ router.post('/register-employer', upload.fields([{ name: 'logo', maxCount: 1 }, 
     if (bad) return res.status(400).json({ message: bad });
     if (!company_name || company_name.length < 2) return res.status(400).json({ message: 'Company name must be at least 2 characters.' });
     if (!isValidYmd(b.date_of_birth) || ageOn(b.date_of_birth) < 18) return res.status(400).json({ message: 'You must be at least 18 years old to create an account.' });
+    if (ageOn(b.date_of_birth) > 120) return res.status(400).json({ message: 'Please enter a valid date of birth.' });
     if (b.terms_accepted !== true && b.terms_accepted !== 'true') return res.status(400).json({ message: 'You must accept the Terms and Conditions to register.' });
     const phoneErr = validatePhone(b.phone);
     if (phoneErr) return res.status(400).json({ message: phoneErr });
     const phone = normalizePhone(b.phone);
     const website = normalizeUrl(b.website);
     if (website === null) return res.status(400).json({ message: 'Please enter a valid website address (for example https://example.rw).' });
+    const contact = cleanStr(b.contact_person, 120);
+    if (contact) {
+      const contactErr = checkFullName(contact);
+      if (contactErr) return res.status(400).json({ message: `Contact person: ${contactErr}` });
+    }
+    // A company logo is shown as a picture, so only image files are accepted for it
+    if (req.files?.logo?.[0] && !/\.(png|jpe?g|webp)$/i.test(req.files.logo[0].originalname || '')) {
+      return res.status(400).json({ message: 'Company logo must be an image (PNG, JPG or WEBP).' });
+    }
 
     const existing = await query('SELECT id FROM users WHERE lower(email) = $1', [email]);
     if (existing.rows.length) return res.status(409).json({ message: 'An account with this email address already exists.' });
@@ -82,11 +92,6 @@ router.post('/register-employer', upload.fields([{ name: 'logo', maxCount: 1 }, 
       }
     }
 
-    const contact = cleanStr(b.contact_person, 120);
-    if (contact) {
-      const contactErr = checkFullName(contact);
-      if (contactErr) return res.status(400).json({ message: `Contact person: ${contactErr}` });
-    }
     const { user, employer } = await withTransaction(async (q) => {
       const u = await q(
         `INSERT INTO users (role, status, name, email, password_hash, phone, terms_accepted, password_changed_at)
@@ -115,7 +120,7 @@ router.post('/register-employer', upload.fields([{ name: 'logo', maxCount: 1 }, 
       token: generateToken(user), user: toPublicUser(user), employer,
     });
   } catch (err) {
-    if (stored.length) await storage.remove(stored);
+    if (stored.length) await discardUploads(stored);
     if (err.status) return res.status(err.status).json({ message: err.message });
     if (isPgUnique(err)) return res.status(409).json({ message: 'An account with this email address already exists.' });
     console.error('Employer registration error:', err.message);
@@ -135,6 +140,7 @@ router.post('/register-employee', upload.single('resume'), async (req, res) => {
     const nameErr = checkFullName(name);
     if (nameErr) return res.status(400).json({ message: nameErr });
     if (!isValidYmd(b.date_of_birth) || ageOn(b.date_of_birth) < 18) return res.status(400).json({ message: 'You must be at least 18 years old to create an account.' });
+    if (ageOn(b.date_of_birth) > 120) return res.status(400).json({ message: 'Please enter a valid date of birth.' });
     if (b.terms_accepted !== true && b.terms_accepted !== 'true') return res.status(400).json({ message: 'You must accept the Terms and Conditions to register.' });
     const phoneErr = validatePhone(b.phone);
     if (phoneErr) return res.status(400).json({ message: phoneErr });
@@ -169,7 +175,7 @@ router.post('/register-employee', upload.single('resume'), async (req, res) => {
     sendVerificationEmail(user).catch(() => {});
     res.status(201).json({ message: 'Candidate account created successfully.', token: generateToken(user), user: toPublicUser(user), profile });
   } catch (err) {
-    if (stored.length) await storage.remove(stored);
+    if (stored.length) await discardUploads(stored);
     if (err.status) return res.status(err.status).json({ message: err.message });
     if (isPgUnique(err)) return res.status(409).json({ message: 'An account with this email address already exists.' });
     console.error('Job seeker registration error:', err.message);
@@ -273,6 +279,12 @@ router.post('/reset-password', resetLimiter, async (req, res) => {
     const { token, password } = req.body || {};
     const issue = passwordIssue(password);
     if (issue) return res.status(400).json({ message: issue });
+    const ownerId = await peekToken(token, 'reset');
+    if (ownerId) {
+      const owner = (await query('SELECT email FROM users WHERE id = $1', [ownerId])).rows[0];
+      const sameAsEmail = owner ? passwordIssue(password, owner.email) : null;
+      if (sameAsEmail) return res.status(400).json({ message: sameAsEmail });
+    }
     const userId = await consumeToken(token, 'reset');
     if (!userId) return res.status(400).json({ message: 'This reset link is invalid or has expired. Please request a new one.', code: 'INVALID_TOKEN' });
 

@@ -116,7 +116,12 @@ router.get('/', optionalAuth, async (req, res) => {
               COUNT(*) OVER()::int AS total_count
        FROM jobs j JOIN employers e ON j.employer_id = e.id JOIN users u ON e.user_id = u.id
        WHERE ${where.join(' AND ')} ORDER BY j.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
-    const total = result.rows[0]?.total_count || 0;
+    let total = result.rows[0]?.total_count || 0;
+    if (!result.rows.length && offset > 0) {
+      // Past the last page the window function returns no rows, so count separately to keep `total` correct
+      const c = await query(`SELECT COUNT(*)::int AS n FROM jobs j JOIN employers e ON j.employer_id = e.id JOIN users u ON e.user_id = u.id WHERE ${where.join(' AND ')}`, params.slice(0, -2));
+      total = c.rows[0].n;
+    }
     res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
     res.json({ jobs: result.rows.map(({ total_count, ...j }) => j), total, limit, offset });
   } catch (err) {
@@ -152,14 +157,15 @@ router.get('/:id', optionalAuth, async (req, res) => {
       const rep = await query('SELECT 1 FROM reports WHERE job_id = $1 AND user_id = $2 LIMIT 1', [jobId, req.user.id]);
       hasReported = rep.rowCount > 0;
     } else {
-      const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+      const clientIp = req.clientIp || req.ip || '';
       if (clientIp) {
-        const rep = await query('SELECT 1 FROM reports WHERE job_id = $1 AND client_ip = $2 LIMIT 1', [jobId, clientIp]);
+        const rep = await query("SELECT 1 FROM reports WHERE job_id = $1 AND client_ip = $2 AND created_at > NOW() - INTERVAL '24 hours' LIMIT 1", [jobId, clientIp]);
         hasReported = rep.rowCount > 0;
       }
     }
     const { employer_user_id, employer_status, ...job } = row;
-    if (!req.user) res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+    // has_reported is specific to the visitor, so shared caches (CDN/proxy) must never store this response
+    if (!req.user) res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
     res.json({ job: { ...job, ...(isOwner ? { employer_user_id } : {}), applicant_count: count.rows[0].n }, has_applied: !!application, has_reported: hasReported, application });
   } catch (err) {
     console.error('Get job details error:', err.message);
@@ -193,17 +199,24 @@ router.post('/', authenticateToken, requireActiveEmployer, requireVerifiedEmail,
 });
 
 // 4. Edit
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, requireActiveEmployer, async (req, res) => {
   try {
     const jobId = parseInt(req.params.id, 10);
     if (!Number.isInteger(jobId)) return res.status(404).json({ message: 'Job not found.' });
-    const existing = await query('SELECT j.id, e.user_id AS employer_user_id FROM jobs j JOIN employers e ON j.employer_id = e.id WHERE j.id = $1', [jobId]);
+    const existing = await query('SELECT j.id, j.status, j.deadline, e.user_id AS employer_user_id FROM jobs j JOIN employers e ON j.employer_id = e.id WHERE j.id = $1', [jobId]);
     if (!existing.rows.length) return res.status(404).json({ message: 'Job not found.' });
     if (req.user.role !== 'admin' && existing.rows[0].employer_user_id !== req.user.id) {
       return res.status(403).json({ message: 'You are not authorized to edit this job posting.' });
     }
+    // A job taken down by moderation can only be restored by an administrator
+    if (existing.rows[0].status === 'removed' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'This job posting was removed by moderation and cannot be edited.' });
+    }
     const { error, value: v } = readJob(req.body || {}, { partial: true });
     if (error) return res.status(400).json({ message: error });
+    if (v.deadline && v.deadline < todayKigali() && v.deadline !== existing.rows[0].deadline) {
+      return res.status(400).json({ message: 'The application deadline cannot be in the past (Rwanda time).' });
+    }
     if (v.title === '' || v.location === '') return res.status(400).json({ message: 'Job title and location cannot be empty.' });
 
     const cols = Object.keys(v);
@@ -218,7 +231,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // 5. Delete
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireActiveEmployer, async (req, res) => {
   try {
     const jobId = parseInt(req.params.id, 10);
     if (!Number.isInteger(jobId)) return res.status(404).json({ message: 'Job not found.' });

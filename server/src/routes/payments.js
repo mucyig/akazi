@@ -66,6 +66,26 @@ router.post('/paypack/initiate', authenticateToken, requireRole('employer'), ini
     // One request at a time, and a daily cap: stops anyone from spamming prompts to a phone number
     const inflight = await query("SELECT 1 FROM payments WHERE employer_id = $1 AND status = 'pending' AND created_at > NOW() - INTERVAL '3 minutes' LIMIT 1", [employer.id]);
     if (inflight.rows.length) return res.status(409).json({ message: 'A payment request is already waiting for approval on your phone. Please approve it, or wait 3 minutes to try again.' });
+    // Older prompts may still be answered on the phone: ask PayPack what happened to them before sending another,
+    // otherwise the same employer could be charged twice.
+    const older = await query("SELECT ref FROM payments WHERE employer_id = $1 AND status = 'pending' AND ref IS NOT NULL ORDER BY created_at DESC LIMIT 5", [employer.id]);
+    for (const row of older.rows) {
+      let live;
+      try {
+        live = await withTimeout(paypack.findTransaction(row.ref), 5000);
+      } catch (e) {
+        console.warn('[Payments] Could not check earlier payment', row.ref, e.message);
+        return res.status(409).json({ message: 'We are still checking your previous payment request. Please wait a few minutes before trying again.' });
+      }
+      const confirmed = live?.data || live;
+      const info = buildWebhookUpdatePayload(confirmed || {}, JSON.stringify(confirmed || {}));
+      if (info.status === 'paid' || info.status === 'failed') {
+        const settled = await settlePayment(row.ref, confirmed, JSON.stringify(confirmed), { source: 'initiate_check', clientIp: req.clientIp, actorId: req.user.id });
+        if (settled?.status === 'paid') return res.json({ alreadyPaid: true, status: 'paid', amount: EMPLOYER_FEE });
+      } else {
+        return res.status(409).json({ message: 'Your previous payment request is still waiting on your phone. Please approve it, or wait for it to expire before trying again.' });
+      }
+    }
     const today = await query("SELECT COUNT(*)::int AS n FROM payments WHERE employer_id = $1 AND created_at > NOW() - INTERVAL '24 hours'", [employer.id]);
     if (today.rows[0].n >= 5) return res.status(429).json({ message: 'You reached the daily limit of payment attempts. Please try again tomorrow or contact support.' });
 

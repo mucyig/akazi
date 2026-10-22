@@ -3,13 +3,17 @@ const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const AdmZip = require('adm-zip');
 
+// Safety: these tests write data, so they only ever use TEST_DATABASE_URL, never the DATABASE_URL from server/.env
+process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(48).toString('hex');
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://unused:unused@127.0.0.1:1/unused';
+
 require('../src/lib/env');
 const { inspectFile, findDuplicateDoc } = require('../src/lib/filescan');
 const { scanBuffer, setMockScanner, resetMockScanner } = require('../src/lib/scanner');
 const { ALLOWED, SIGNATURES, storeUpload } = require('../src/middleware/upload');
 const storage = require('../src/lib/storage');
 
-const testDbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const testDbUrl = process.env.TEST_DATABASE_URL;
 let dbAvailable = false;
 let query = null;
 let initDb = null;
@@ -308,7 +312,7 @@ test('Task 4 & 7: With a mocked scanner returning error, the upload stays unavai
   });
   assert.equal(res.status, 409, 'File with status error must stay unavailable');
   const data = await res.json();
-  assert.equal(data.message, 'This file is still being checked.');
+  assert.match(data.message, /waiting for a security check/);
 
   resetMockScanner();
   await storage.remove(key);

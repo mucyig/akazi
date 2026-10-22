@@ -85,6 +85,15 @@ async function initDb() {
     ];
     for (const sql of alters) await client.query(sql);
 
+    // Older databases may have a jobs.status check without 'removed' (used when moderation takes a job down)
+    await client.query(`DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'jobs'::regclass AND conname = 'jobs_status_check'
+                 AND pg_get_constraintdef(oid) NOT LIKE '%removed%') THEN
+        ALTER TABLE jobs DROP CONSTRAINT jobs_status_check;
+        ALTER TABLE jobs ADD CONSTRAINT jobs_status_check CHECK (status IN ('active','closed','removed'));
+      END IF;
+    END $$;`);
+
     if (usersExist.rows[0].t && !hadVerifyColumn) {
       // Accounts that existed before email verification keep working
       await client.query('UPDATE users SET email_verified_at = COALESCE(created_at, NOW()) WHERE email_verified_at IS NULL');

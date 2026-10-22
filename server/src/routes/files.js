@@ -61,7 +61,11 @@ router.get('/url', authenticateToken, async (req, res) => {
 
     const scanRes = await query('SELECT status FROM file_scans WHERE key = $1', [key]);
     if (scanRes.rows[0]?.status !== 'clean') {
-      return res.status(409).json({ message: 'This file is still being checked.' });
+      // 'error' means the virus scan could not run (e.g. scanner offline): say so instead of a misleading "still being checked"
+      const msg = scanRes.rows[0]?.status === 'error'
+        ? 'This file is waiting for a security check and is not available yet. Please try again later.'
+        : 'This file is still being checked.';
+      return res.status(409).json({ message: msg });
     }
     const url = await storage.getDownloadUrl(key, { expiresIn: 300 });
     if (!url) return res.status(404).json({ message: 'The requested document does not exist or has been removed.' });

@@ -15,8 +15,15 @@ async function settlePayment(ref, confirmedData, rawText, { source = 'webhook', 
     }
     const payment = pRes.rows[0];
 
+    // What the provider says now (the caller passes provider-confirmed data)
+    const info = buildWebhookUpdatePayload(confirmedData, rawText);
+
+    // A payment we gave up on (expired/failed) can still be paid later by the customer. Money received must
+    // activate the account, so a provider-confirmed "paid" re-opens a failed payment. A paid payment is never downgraded.
+    const lateSuccess = payment.status === 'failed' && info.status === 'paid';
+
     // 2. If already processed, ensure employer status is synchronized (self-healing)
-    if (payment.status !== 'pending') {
+    if (payment.status !== 'pending' && !lateSuccess) {
       let repaired = false;
       if (payment.status === 'paid') {
         const empRes = await q('SELECT id, payment_status FROM employers WHERE id = $1 FOR UPDATE', [payment.employer_id]);
@@ -39,15 +46,12 @@ async function settlePayment(ref, confirmedData, rawText, { source = 'webhook', 
       return { duplicate: true, status: payment.status, repaired };
     }
 
-    // 3. Normalize payment update details
-    const info = buildWebhookUpdatePayload(confirmedData, rawText);
-
-    // 4. Validate payment amount
-    if (info.status === 'paid' && confirmedData?.amount !== undefined && Number(confirmedData.amount) !== Number(payment.amount)) {
-      console.error(`[Payments] Amount mismatch for ${ref}: expected ${payment.amount}, got ${confirmedData.amount}`);
+    // 4. Validate payment amount: it must be present AND equal to what we asked for
+    if (info.status === 'paid' && (confirmedData?.amount === undefined || confirmedData?.amount === null || Number(confirmedData.amount) !== Number(payment.amount))) {
+      console.error(`[Payments] Amount mismatch for ${ref}: expected ${payment.amount}, got ${confirmedData?.amount}`);
       await q(
         'INSERT INTO audit_log (actor_id, action, target_type, target_id, meta, ip) VALUES ($1,$2,$3,$4,$5,$6)',
-        [actorId, 'payment.amount_mismatch', 'payment', ref, JSON.stringify({ expected: payment.amount, got: confirmedData.amount, source }), clientIp]
+        [actorId, 'payment.amount_mismatch', 'payment', ref, JSON.stringify({ expected: payment.amount, got: confirmedData?.amount ?? null, source }), clientIp]
       );
       return { rejected: true, reason: 'amount_mismatch' };
     }
@@ -80,7 +84,7 @@ async function settlePayment(ref, confirmedData, rawText, { source = 'webhook', 
 
       await q(
         'INSERT INTO audit_log (actor_id, action, target_type, target_id, meta, ip) VALUES ($1,$2,$3,$4,$5,$6)',
-        [actorId, 'payment.paid', 'payment', ref, JSON.stringify({ employer_id: payment.employer_id, source }), clientIp]
+        [actorId, 'payment.paid', 'payment', ref, JSON.stringify({ employer_id: payment.employer_id, source, late: lateSuccess }), clientIp]
       );
 
       return { settled: true, status: 'paid', payment: { ...payment, status: 'paid' } };

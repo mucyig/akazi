@@ -63,7 +63,7 @@ wrangler secret put PROXY_SECRET       # a long random value
 
 and set the **same** value as `PROXY_SECRET` on the API (Render). Without it the API still works, but rate limits are shared by everyone coming through Cloudflare.
 
-Production environment checklist (the server will not start if the first group is missing):
+Production environment checklist (the server refuses to start without `DATABASE_URL` and `JWT_SECRET`; missing cloud storage (B2 or R2), `RESEND_API_KEY` or `PAYPACK_WEBHOOK_SECRET` only logs a warning, so set them before going live):
 `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL` (https), `R2_*`, `RESEND_API_KEY`, and `PAYPACK_WEBHOOK_SECRET` if PayPack is used. Also set `PAYPACK_CLIENT_ID`, `PAYPACK_CLIENT_SECRET`, `PROXY_SECRET`, `DATABASE_SSL=true` if your database requires it.
 
 ## Document safety and virus scanning

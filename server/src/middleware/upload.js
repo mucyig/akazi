@@ -92,4 +92,13 @@ async function storeUpload(file, folder, req = null) {
   return key;
 }
 
-module.exports = { upload, storeUpload, MAX_BYTES, ALLOWED, SIGNATURES };
+// Removes already-stored uploads (storage object AND its file_scans row) when the request later fails,
+// so failed requests never leave orphaned files behind.
+async function discardUploads(keys) {
+  const list = [].concat(keys || []).filter(Boolean);
+  if (!list.length) return;
+  try { await storage.remove(list); } catch (e) { console.warn('[Upload] cleanup failed:', e.message); }
+  try { await query('DELETE FROM file_scans WHERE key = ANY($1)', [list]); } catch (e) { console.warn('[Upload] scan cleanup failed:', e.message); }
+}
+
+module.exports = { upload, storeUpload, discardUploads, MAX_BYTES, ALLOWED, SIGNATURES };
