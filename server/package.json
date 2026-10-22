@@ -13,6 +13,7 @@
     "backfill-scans": "node src/scripts/backfill-scans.js",
     "reconcile-payments": "node src/scripts/reconcile-payments.js",
     "check-db": "node src/scripts/check-db.js",
+    "diagnose-db": "node src/scripts/diagnose-db.js",
     "check-paypack": "node src/scripts/check-paypack.js"
   },
   "dependencies": {
