@@ -106,4 +106,4 @@ Uploads undergo multi-layer inspection before and after storage:
 
 - Two-factor authentication for admins.
 - Session in an httpOnly cookie instead of `localStorage` (needs CSRF protection).
-- Chat presence ("online now") is in server memory, so it resets on restart and assumes a single server.
+- Chat presence ("online now") is in server memory, so it resets on restart and assumes a single server. hello
