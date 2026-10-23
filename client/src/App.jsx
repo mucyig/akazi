@@ -30,6 +30,7 @@ import { syncClock } from './utils/time';
 import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import LegalPage from './pages/LegalPage';
+import DeveloperPortalPage from './pages/DeveloperPortalPage';
 import './App.css';
 
 // Waits for the saved session to load, then sends guests to login and wrong roles home
@@ -76,6 +77,8 @@ export default function App() {
 
                   <Route path="/terms" element={<LegalPage which="terms" />} />
                   <Route path="/privacy" element={<LegalPage which="privacy" />} />
+                  <Route path="/developers" element={<DeveloperPortalPage />} />
+                  <Route path="/api" element={<Navigate to="/developers" replace />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />

@@ -121,6 +121,8 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/files', require('./routes/files'));
+app.use('/api/v1', require('./routes/apiV1'));
+app.use('/api/developer', require('./routes/developer'));
 
 app.use('/api', (req, res) => res.status(404).json({ message: 'Not found.' }));
 
