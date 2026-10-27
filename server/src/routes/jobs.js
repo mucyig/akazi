@@ -77,12 +77,13 @@ function readJob(body, { partial }) {
 // 1. Browse and search (filtering happens in SQL)
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const { search, category, location, job_type, workplace_type } = req.query;
+    const rawSearch = req.query.search || req.query.q;
+    const { category, location, job_type, workplace_type } = req.query;
     const params = []; const where = [OPEN_FILTER];
-    const add = (sql, val) => { params.push(val); where.push(sql.replace('$$', `$${params.length}`)); };
+    const add = (sql, val) => { params.push(val); where.push(sql.split('$$').join(`$${params.length}`)); };
 
-    if (typeof search === 'string' && search.trim()) {
-      let cleaned = search.trim().toLowerCase();
+    if (typeof rawSearch === 'string' && rawSearch.trim()) {
+      let cleaned = rawSearch.trim().toLowerCase();
       const stopPhrases = [
         'akazi mu rwanda', 'job in rwanda', 'jobs in rwanda',
         'imirimo mu rwanda', 'work in rwanda', 'imirimo',
@@ -111,7 +112,7 @@ router.get('/', optionalAuth, async (req, res) => {
     params.push(limit, offset);
 
     const result = await query(
-      `SELECT j.*, e.company_name, e.logo_url, e.location AS employer_location, e.industry,
+      `SELECT j.*, e.company_name, e.logo_url, e.location AS employer_location, e.industry, e.is_verified,
               (SELECT COUNT(*)::int FROM applications a WHERE a.job_id = j.id) AS applicant_count,
               COUNT(*) OVER()::int AS total_count
        FROM jobs j JOIN employers e ON j.employer_id = e.id JOIN users u ON e.user_id = u.id
@@ -137,7 +138,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     if (!Number.isInteger(jobId)) return res.status(404).json({ message: 'Job posting not found.' });
     const result = await query(
       `SELECT j.*, e.company_name, e.logo_url, e.website AS employer_website, e.description AS employer_description,
-              e.location AS employer_location, e.contact_person, e.industry, e.user_id AS employer_user_id, u.status AS employer_status,
+              e.location AS employer_location, e.contact_person, e.industry, e.user_id AS employer_user_id, u.status AS employer_status, e.is_verified,
               (j.deadline IS NOT NULL AND j.deadline < (NOW() AT TIME ZONE 'Africa/Kigali')::date) AS is_expired
        FROM jobs j JOIN employers e ON j.employer_id = e.id JOIN users u ON u.id = e.user_id WHERE j.id = $1`, [jobId]);
     const row = result.rows[0];

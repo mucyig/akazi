@@ -76,7 +76,7 @@ async function settlePayment(ref, confirmedData, rawText, { source = 'webhook', 
         [
           payment.user_id,
           'Payment received - your account is active!',
-          `Your ${feeFormatted} RWF verification payment was received. You can now post jobs and hire on Akazi.`,
+          `Your ${feeFormatted} RWF registration payment was received. You can now post jobs and hire on Akazi. To receive the Verified Business Tick on your profile and listings, submit an application from your dashboard.`,
           'payment',
           '/employer/dashboard',
         ]

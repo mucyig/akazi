@@ -133,7 +133,7 @@ export const TERMS = {
       blocks: [
         { type: 'p', text: 'Akazi provides a public developer API to enable partners, Telegram/WhatsApp bots, and educational portals to display verified job listings in Rwanda.' },
         { type: 'ul', items: [
-          'Attribution: Any site, bot, or application using the API must clearly display \"Powered by Akazi.rw\" and link the apply action directly to the original Akazi job URL.',
+          'Attribution: Any site, bot, or application using the API must clearly display "Powered by Akazi.rw" and link the apply action directly to the original Akazi job URL.',
           'Free Tier Limits: Free API keys are subject to strict rate limits (120 requests/hour) to protect platform stability. Circumventing limits, scraping, or attempting to harvest private data results in immediate key revocation.',
           'Commercial & Enterprise: High-volume usage, instant webhooks, and ATS automated posting require a Commercial or Enterprise agreement.',
           'Akazi reserves the right to modify, rate-limit, or terminate API access at any time to preserve system integrity.',

@@ -17,12 +17,14 @@ import {
   Clock, 
   AlertCircle,
   Loader2,
+  BadgeCheck,
   X
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { formatJobType } from '../../utils/format';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -40,6 +42,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+
+  const pendingTickApplications = allEmployers.filter(e => e.verification_tick_status === 'applied');
+  const pendingTickCount = pendingTickApplications.length;
 
   // Reject Employer Modal state
   const [rejectingEmp, setRejectingEmp] = useState(null);
@@ -135,6 +140,63 @@ export default function AdminDashboard() {
     }
   };
 
+  // Grant Verified Business Tick
+  const handleGrantTick = async (empId, companyName) => {
+    setActionLoading(true);
+    try {
+      await api.patch(`/admin/employers/${empId}/grant-tick`);
+      showNotification(language === 'rw' 
+        ? `Ikimenyetso cy'ubucuruzi bwemejwe cyahawe "${companyName}".` 
+        : `Granted Verified Business Tick to "${companyName}".`);
+      await loadAllData();
+    } catch (err) {
+      alert(err.message || t('common.error'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Decline Verified Business Tick
+  const handleRejectTick = async (empId, companyName) => {
+    const defaultReason = language === 'rw' 
+      ? 'Inyandiko z\'iyandikisha ntizabashije kwemezwa.' 
+      : 'Business verification documents could not be validated. Please ensure documents are valid.';
+    const reason = window.prompt(
+      language === 'rw' ? `Impamvu yo guhakanira "${companyName}":` : `Reason for declining verification tick for "${companyName}":`,
+      defaultReason
+    );
+    if (!reason) return;
+    setActionLoading(true);
+    try {
+      await api.patch(`/admin/employers/${empId}/reject-tick`, { reason });
+      showNotification(language === 'rw' 
+        ? `Ubusabe bwa "${companyName}" bwahakanywe.` 
+        : `Declined verification tick for "${companyName}".`);
+      await loadAllData();
+    } catch (err) {
+      alert(err.message || t('common.error'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Revoke Verified Business Tick
+  const handleRevokeTick = async (empId, companyName) => {
+    if (!window.confirm(language === 'rw' ? `Ushaka gukuraho ikimenyetso kuri "${companyName}"?` : `Revoke Verified Tick from "${companyName}"?`)) return;
+    setActionLoading(true);
+    try {
+      await api.patch(`/admin/employers/${empId}/revoke-tick`);
+      showNotification(language === 'rw' 
+        ? `Ikimenyetso cyakuwe kuri "${companyName}".` 
+        : `Revoked Verified Tick from "${companyName}".`);
+      await loadAllData();
+    } catch (err) {
+      alert(err.message || t('common.error'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Toggle user suspension
   const handleToggleUserStatus = async (targetUser) => {
     const nextStatus = targetUser.status === 'suspended' ? 'approved' : 'suspended';
@@ -212,6 +274,23 @@ export default function AdminDashboard() {
             <span>{t('admin.pendingApprovalsTab', { count: pendingEmployers.length })}</span>
             {pendingEmployers.length > 0 && (
               <span className="w-2 h-2 rounded-full bg-zinc-950" />
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('ticks')}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'ticks'
+                ? 'border-blue-600 text-blue-700 font-bold'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800'
+            }`}
+          >
+            <BadgeCheck className="w-3.5 h-3.5" />
+            <span>{language === 'rw' ? `Ubusabe bwa Verified Tick (${pendingTickCount})` : `Verified Tick Applications (${pendingTickCount})`}</span>
+            {pendingTickCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white leading-none">
+                {pendingTickCount}
+              </span>
             )}
           </button>
 
@@ -349,30 +428,197 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Tab 2: Verified Employers */}
+        {/* Tab: Verified Tick Applications Queue */}
+        {activeTab === 'ticks' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-3">
+                <BadgeCheck className="w-5 h-5 text-blue-700 shrink-0" />
+                <p className="text-blue-900 font-medium">
+                  {language === 'rw' 
+                    ? 'Abakoresha basabye ikimenyetso cy\'ubucuruzi bwemejwe (Verified Tick). Kanda kuri dosiye usuzume mbere yo kwemeza.' 
+                    : 'Employers who applied for the official Verified Business Tick. Review their credentials and grant or decline the badge.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+              {pendingTickApplications.length === 0 ? (
+                <div className="p-12 text-center text-zinc-400 text-xs">
+                  <BadgeCheck className="w-8 h-8 mx-auto text-zinc-300 mb-2" />
+                  <p className="font-semibold text-zinc-700">No pending verification tick applications.</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">When employers apply for the verified badge from their dashboard, they will appear here.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-zinc-100">
+                  {pendingTickApplications.map((emp) => (
+                    <div key={emp.id} className="p-5 sm:p-6 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-zinc-950 text-sm">{emp.company_name}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                              Tick Applied
+                            </span>
+                          </div>
+                          <div className="text-zinc-500 text-xs mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                            <span>{emp.industry}</span>
+                            <span>•</span>
+                            <span>{emp.location}</span>
+                            <span>•</span>
+                            <span>{emp.email}</span>
+                            {emp.phone && (
+                              <>
+                                <span>•</span>
+                                <span>{emp.phone}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleGrantTick(emp.id, emp.company_name)}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            <BadgeCheck className="w-3.5 h-3.5" />
+                            <span>Grant Verified Tick</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectTick(emp.id, emp.company_name)}
+                            disabled={actionLoading}
+                            className="px-3.5 py-2 border border-zinc-200 text-rose-600 hover:bg-rose-50 text-xs font-medium rounded-xl transition disabled:opacity-50"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Documents and Notes */}
+                      <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="text-zinc-600 max-w-xl">
+                          <span className="text-zinc-400 block text-[10px] uppercase font-semibold">
+                            Notes / Submission Info
+                          </span>
+                          <p className="mt-0.5">{emp.verification_tick_notes || 'No extra notes provided.'}</p>
+                        </div>
+
+                        {(emp.verification_tick_doc_url || emp.registration_doc_url) ? (
+                          <FileLink 
+                            fileKey={emp.verification_tick_doc_url || emp.registration_doc_url} 
+                            icon={false} 
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-zinc-300 rounded-lg font-semibold text-zinc-900 hover:bg-zinc-50 shrink-0 shadow-2xs"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-blue-600" />
+                            <span>View Submitted Document</span>
+                            <ExternalLink className="w-3 h-3 text-zinc-400" />
+                          </FileLink>
+                        ) : (
+                          <span className="text-zinc-400 italic text-xs">No document attached</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Registered / Approved Employers */}
         {activeTab === 'employers' && (
           <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
             <div className="divide-y divide-zinc-100">
               {allEmployers.map((emp) => (
-                <div key={emp.id} className="p-4 sm:p-5 flex items-center justify-between text-xs">
+                <div key={emp.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-zinc-950 text-sm">{emp.company_name}</span>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        {t('nav.statusApproved')}
+                      
+                      {/* Verified Tick Badge */}
+                      {emp.is_verified ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                          <BadgeCheck className="w-3 h-3 text-blue-600" />
+                          <span>Verified Tick</span>
+                        </span>
+                      ) : emp.verification_tick_status === 'applied' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          <span>Tick Applied</span>
+                        </span>
+                      ) : null}
+
+                      {/* Payment Status Badge */}
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        emp.payment_status === 'paid' 
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                          : 'bg-zinc-100 text-zinc-600'
+                      }`}>
+                        {emp.payment_status === 'paid' ? 'Registration Paid' : 'Registration Unpaid'}
                       </span>
                     </div>
-                    <div className="text-zinc-500 mt-0.5 flex gap-3">
+
+                    <div className="text-zinc-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>{emp.industry}</span>
                       <span>•</span>
                       <span>{emp.location}</span>
                       <span>•</span>
                       <span>{emp.email}</span>
+                      <span>•</span>
+                      <span>{emp.job_count || 0} jobs</span>
                     </div>
                   </div>
-                  <span className="text-zinc-400 text-[11px]">
-                    {formatDate(emp.registered_at || emp.created_at)}
-                  </span>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* View Document link if available */}
+                    {(emp.verification_tick_doc_url || emp.registration_doc_url) && (
+                      <FileLink
+                        fileKey={emp.verification_tick_doc_url || emp.registration_doc_url}
+                        icon={false}
+                        className="px-2.5 py-1.5 text-[11px] font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 text-zinc-700 flex items-center gap-1"
+                      >
+                        <FileText className="w-3 h-3" />
+                        <span>Doc</span>
+                      </FileLink>
+                    )}
+
+                    {/* Tick actions */}
+                    {emp.is_verified ? (
+                      <button
+                        onClick={() => handleRevokeTick(emp.id, emp.company_name)}
+                        disabled={actionLoading}
+                        className="px-2.5 py-1.5 text-[11px] font-medium border border-zinc-200 hover:bg-zinc-50 text-zinc-600 rounded-lg transition disabled:opacity-50"
+                      >
+                        Revoke Tick
+                      </button>
+                    ) : emp.verification_tick_status === 'applied' ? (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleGrantTick(emp.id, emp.company_name)}
+                          disabled={actionLoading}
+                          className="px-3 py-1.5 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-2xs disabled:opacity-50"
+                        >
+                          Grant Tick
+                        </button>
+                        <button
+                          onClick={() => handleRejectTick(emp.id, emp.company_name)}
+                          disabled={actionLoading}
+                          className="px-2.5 py-1.5 text-[11px] font-medium border border-zinc-200 text-rose-600 hover:bg-rose-50 rounded-lg transition disabled:opacity-50"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleGrantTick(emp.id, emp.company_name)}
+                        disabled={actionLoading}
+                        className="px-2.5 py-1.5 text-[11px] font-medium border border-zinc-200 hover:bg-blue-50 hover:text-blue-700 text-zinc-600 rounded-lg transition disabled:opacity-50"
+                      >
+                        Grant Tick
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -388,12 +634,17 @@ export default function AdminDashboard() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-zinc-950 text-sm">{job.title}</span>
-                      <span className="text-zinc-400">at {job.company_name}</span>
+                      <span className="text-zinc-400 inline-flex items-center gap-1">
+                        at {job.company_name}
+                        {job.is_verified && (
+                          <BadgeCheck className="w-3.5 h-3.5 text-blue-600 shrink-0 inline" title="Verified Business" />
+                        )}
+                      </span>
                     </div>
                     <div className="text-zinc-500 mt-0.5 flex gap-3">
                       <span>{job.location}</span>
                       <span>•</span>
-                      <span className="capitalize">{job.job_type}</span>
+                      <span>{formatJobType(job.job_type, language)}</span>
                       <span>•</span>
                       <span>{job.applicant_count || 0} applicants</span>
                     </div>

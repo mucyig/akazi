@@ -8,7 +8,8 @@ import {
   HelpCircle, 
   Clock, 
   CheckCircle2, 
-  Loader2 
+  Loader2,
+  BadgeCheck 
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -89,8 +90,11 @@ export default function ReportJobModal({ job, onClose, onReportSuccess }) {
               <h2 className="text-base font-bold text-zinc-900">
                 {t('reportModal.title')}
               </h2>
-              <p className="text-xs text-zinc-500 mt-0.5 max-w-xs">
-                {job?.title} · <span className="font-medium text-zinc-700">{job?.company_name}</span>
+              <p className="text-xs text-zinc-500 mt-0.5 max-w-xs inline-flex items-center gap-1">
+                <span>{job?.title} · <span className="font-medium text-zinc-700">{job?.company_name}</span></span>
+                {job?.is_verified && (
+                  <BadgeCheck className="w-3.5 h-3.5 text-blue-600 shrink-0 inline" title="Verified Business" />
+                )}
               </p>
             </div>
           </div>

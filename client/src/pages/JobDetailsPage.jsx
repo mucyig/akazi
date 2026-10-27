@@ -12,6 +12,7 @@ import {
   Briefcase,
   AlertCircle,
   ShieldCheck,
+  BadgeCheck,
   ChevronRight,
   Share2,
   Check,
@@ -24,7 +25,7 @@ import ApplyModal from '../components/ApplyModal';
 import ReportJobModal from '../components/ReportJobModal';
 import { isJobReported, markJobReported } from '../utils/reportedJobs';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { formatSalary } from '../utils/format';
+import { formatSalary, formatJobType } from '../utils/format';
 
 export default function JobDetailsPage() {
   const { id } = useParams();
@@ -245,15 +246,25 @@ export default function JobDetailsPage() {
           <div className="p-6 sm:p-8 border-b border-zinc-100 bg-gradient-to-b from-zinc-50/40 to-white">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
               <div>
-                <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-                  <Building2 className="w-3.5 h-3.5 text-zinc-600" />
-                  <span>{job.company_name}</span>
-                  {job.employer_status === 'approved' && (
-                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                      <ShieldCheck className="w-3 h-3" />
-                      {t('nav.statusApproved')}
-                    </span>
+                <div className="flex items-center gap-3 mb-3">
+                  {job.logo_url ? (
+                    <img src={job.logo_url} alt={job.company_name} className="w-12 h-12 rounded-xl object-contain border border-zinc-200 bg-white p-1 shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-zinc-900 text-white font-bold text-lg grid place-items-center shrink-0">
+                      {job.company_name ? job.company_name[0] : 'C'}
+                    </div>
                   )}
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                      <span className="font-bold text-zinc-900">{job.company_name}</span>
+                      {job.is_verified && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200" title="Verified Business">
+                          <BadgeCheck className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{language === 'rw' ? 'Wemewe' : 'Verified'}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950">
@@ -266,8 +277,8 @@ export default function JobDetailsPage() {
                     {job.location}
                   </span>
                   <span>•</span>
-                  <span className="capitalize font-medium text-zinc-800">
-                    {job.job_type}
+                  <span className="font-medium text-zinc-800">
+                    {formatJobType(job.job_type, language)}
                   </span>
                   {job.category && (
                     <>
@@ -327,8 +338,8 @@ export default function JobDetailsPage() {
               </div>
               <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100">
                 <span className="text-zinc-400 block text-[11px] mb-1">{t('jobDetails.jobType')}</span>
-                <span className="font-semibold text-zinc-900 text-sm capitalize">
-                  {job.job_type}
+                <span className="font-semibold text-zinc-900 text-sm">
+                  {formatJobType(job.job_type, language)}
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-zinc-50/70 border border-zinc-100">
@@ -411,10 +422,21 @@ export default function JobDetailsPage() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                 {t('jobDetails.aboutEmployer')}
               </h2>
-              <div className="text-xs text-zinc-600 leading-relaxed">
+              <div className="flex items-center gap-2 mt-1">
+                {job.logo_url && (
+                  <img src={job.logo_url} alt={job.company_name} className="w-8 h-8 rounded-lg object-contain border border-zinc-200 bg-white p-0.5" />
+                )}
+                <span className="font-bold text-sm text-zinc-950 flex items-center gap-1.5">
+                  {job.company_name}
+                  {job.is_verified && (
+                    <BadgeCheck className="w-4 h-4 text-blue-600 shrink-0 inline" title="Verified Business" />
+                  )}
+                </span>
+              </div>
+              <div className="text-xs text-zinc-600 leading-relaxed mt-1">
                 {job.employer_description || (language === 'rw' 
-                  ? 'Ubucuruzi bwiyandikishije kandi bwemejwe kuri Akazi.' 
-                  : 'Verified registered business on Akazi platform.')}
+                  ? 'Ubucuruzi bwiyandikishije kuri Akazi.' 
+                  : 'Registered business on Akazi platform.')}
               </div>
             </section>
 

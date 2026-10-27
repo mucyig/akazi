@@ -108,3 +108,12 @@ Server-only changes. No client/UI files were modified.
 - Editing/deleting a job now needs an active, paid employer (like creating one); a job edit cannot set a past deadline.
 - Files whose virus scan could not run show a clearer message.
 - Tests: `payment-reliability` and `upload-security` only use `TEST_DATABASE_URL` (never the `.env` database); new `test/e2e-full.test.js` journeys + bug regression tests.
+
+---
+
+## Brand & stability fixes (2026-10-26)
+- New tab/app icon set (favicon.ico, 16/32 PNG, apple-touch, 192/512) wired into `client/index.html` and `site.webmanifest` (theme colour now brand green).
+- Fixed missing `/akazi_logo_transparent.png` (referenced but absent from `client/public`); dark-background spots now use the high-contrast icon tile.
+- Auth pages: curved green/white split on phones with the form in a white card; desktop layout unchanged.
+- `npm test` now blanks storage/email keys so tests can never touch the real Backblaze bucket, and only runs `test/*.test.js` (the traffic simulation moved to `server/scripts-dev`, run with `npm run simulate`).
+- Added `server/.env.example`. Removed stray files (`files.zip`, `update-index.js`, duplicate logos, old favicon.svg).

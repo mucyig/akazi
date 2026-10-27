@@ -80,7 +80,7 @@ router.get('/jobs', async (req, res) => {
     const jobsSql = `
       SELECT j.id, j.title, j.category, j.job_type, j.workplace_type, j.location,
              j.salary_range, j.deadline, j.created_at,
-             e.company_name, e.logo_url, e.website
+             e.company_name, e.logo_url, e.website, e.is_verified
       FROM jobs j
       JOIN employers e ON j.employer_id = e.id
       JOIN users u ON e.user_id = u.id
@@ -102,7 +102,7 @@ router.get('/jobs', async (req, res) => {
       deadline: j.deadline,
       company: {
         name: j.company_name,
-        verified: true,
+        verified: !!j.is_verified,
         logo_url: j.logo_url,
         website: j.website
       },
@@ -136,7 +136,7 @@ router.get('/jobs/:id', async (req, res) => {
       SELECT j.id, j.title, j.category, j.job_type, j.workplace_type, j.location,
              j.description, j.requirements, j.responsibilities, j.working_conditions,
              j.benefits, j.salary_range, j.deadline, j.created_at,
-             e.company_name, e.logo_url, e.website, e.industry
+             e.company_name, e.logo_url, e.website, e.industry, e.is_verified
       FROM jobs j
       JOIN employers e ON j.employer_id = e.id
       JOIN users u ON e.user_id = u.id
@@ -171,7 +171,7 @@ router.get('/jobs/:id', async (req, res) => {
         company: {
           name: j.company_name,
           industry: j.industry,
-          verified: true,
+          verified: !!j.is_verified,
           logo_url: j.logo_url,
           website: j.website
         },

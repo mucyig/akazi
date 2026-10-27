@@ -8,7 +8,10 @@ export default function Footer() {
     <footer className="mt-20 bg-blue-950 text-blue-100">
       <div className="page py-12 grid gap-10 sm:grid-cols-[2fr_1fr_1fr_1fr]">
         <div>
-          <p className="display text-3xl font-bold text-white">akazi</p>
+          <div className="flex items-center gap-2.5">
+            <img src="/icon-192.png" alt="Akazi logo" className="w-9 h-9 rounded-xl ring-1 ring-white/15" />
+            <p className="display text-3xl font-bold text-white">akazi</p>
+          </div>
           <p className="mt-3 max-w-xs text-sm text-blue-200 leading-relaxed">
             {tr("Work, found properly. Verified employers and real conversations, made in Kigali.", "Gushaka akazi neza. Abakoresha bemewe n’ibiganiro nyabyo, byakorewe i Kigali.")}
           </p>

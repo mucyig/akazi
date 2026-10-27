@@ -112,7 +112,7 @@ router.get('/my', authenticateToken, requireRole('employee'), async (req, res) =
   try {
     const result = await query(
       `SELECT a.*, (a.status <> 'pending' AND a.result_seen_at IS NULL) AS has_new_result,
-              j.title AS job_title, j.location AS job_location, j.job_type, j.salary_range, e.company_name, e.logo_url AS company_logo
+              j.title AS job_title, j.location AS job_location, j.job_type, j.salary_range, e.company_name, e.logo_url AS company_logo, e.is_verified
        FROM applications a JOIN jobs j ON a.job_id = j.id JOIN employers e ON j.employer_id = e.id
        WHERE a.employee_id = $1 ORDER BY a.created_at DESC`, [req.user.id]);
     res.json({ applications: result.rows });

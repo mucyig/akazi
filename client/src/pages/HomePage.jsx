@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ArrowRight, MapPin } from 'lucide-react';
+import { Search, ArrowRight, MapPin, BadgeCheck } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -105,7 +105,12 @@ export default function HomePage() {
                 <li key={j.id} className="border-b rule">
                   <Link to={`/jobs/${j.id}`} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-6 py-4 group">
                     <span className="flex-1 font-bold text-zinc-950 group-hover:text-blue-800">{j.title}</span>
-                    <span className="text-sm text-zinc-600 sm:w-56 truncate">{j.company_name}</span>
+                    <span className="text-sm text-zinc-600 sm:w-56 truncate inline-flex items-center gap-1.5">
+                      <span className="truncate">{j.company_name}</span>
+                      {j.is_verified && (
+                        <BadgeCheck className="w-3.5 h-3.5 text-blue-600 shrink-0 inline" title="Verified Business" />
+                      )}
+                    </span>
                     <span className="text-sm text-zinc-500 inline-flex items-center gap-1 sm:w-44 truncate"><MapPin className="w-3.5 h-3.5 shrink-0" />{j.location}</span>
                     {j.created_at && (
                       <span className="text-xs text-zinc-400 sm:w-28 text-left sm:text-right shrink-0">

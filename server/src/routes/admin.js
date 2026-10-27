@@ -53,8 +53,8 @@ router.patch('/employers/:userId/approve', async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
     const r = await query("UPDATE users SET status = 'approved', updated_at = NOW() WHERE id = $1 AND role = 'employer' AND status = 'pending' RETURNING id, email, name", [userId]);
     if (!r.rows.length) return res.status(409).json({ message: 'This employer is not waiting for review.' });
-    await notify(userId, 'Business Verified - one last step', 'Your business was verified by our team. Pay the 5,000 RWF verification fee to activate your account and start posting jobs.', 'employer_approval', '/employer/status');
-    sendMailLater({ to: r.rows[0].email, subject: 'Your business was verified on Akazi', title: 'Your business is verified', intro: 'One last step: pay the 5,000 RWF verification fee to activate your account and start posting jobs.', ctaLabel: 'Complete payment', ctaUrl: `${CLIENT_URL}/employer/payment` });
+    await notify(userId, 'Account Approved - one last step', 'Your employer account was approved. Pay the 5,000 RWF registration fee to activate your account and start posting jobs.', 'employer_approval', '/employer/status');
+    sendMailLater({ to: r.rows[0].email, subject: 'Your employer account was approved on Akazi', title: 'Account Approved', intro: 'One last step: pay the 5,000 RWF registration fee to activate your account and start posting jobs.', ctaLabel: 'Complete payment', ctaUrl: `${CLIENT_URL}/employer/payment` });
     audit(req, 'employer.approved', 'user', userId);
     res.json({ message: 'Employer account approved successfully.' });
   } catch (err) { fail(res, 'Approve employer error:', err, 'Failed to approve employer.'); }
@@ -63,14 +63,93 @@ router.patch('/employers/:userId/approve', async (req, res) => {
 router.patch('/employers/:userId/reject', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
-    const reason = cleanStr(req.body?.reason, 500) || 'Business verification documents could not be validated. Please contact support.';
+    const reason = cleanStr(req.body?.reason, 500) || 'Business credentials could not be validated. Please contact support.';
     const r = await query("UPDATE users SET status = 'rejected', updated_at = NOW() WHERE id = $1 AND role = 'employer' AND status = 'pending' RETURNING id, email", [userId]);
     if (!r.rows.length) return res.status(409).json({ message: 'This employer is not waiting for review.' });
-    await notify(userId, 'Employer Verification Declined', `Your verification request was not approved: ${reason}`, 'employer_approval', '/profile');
-    sendMailLater({ to: r.rows[0].email, subject: 'Update on your Akazi verification', title: 'Verification not approved', intro: `Your verification request was not approved: ${reason}` });
+    await notify(userId, 'Employer Registration Declined', `Your registration request was not approved: ${reason}`, 'employer_approval', '/profile');
+    sendMailLater({ to: r.rows[0].email, subject: 'Update on your Akazi registration', title: 'Registration not approved', intro: `Your registration request was not approved: ${reason}` });
     audit(req, 'employer.rejected', 'user', userId, { reason });
     res.json({ message: 'Employer registration declined.' });
   } catch (err) { fail(res, 'Reject employer error:', err, 'Failed to reject employer.'); }
+});
+
+// Grant Verified Business Tick to an employer
+router.patch('/employers/:id/grant-tick', async (req, res) => {
+  try {
+    const empId = parseInt(req.params.id, 10);
+    const empRes = await query('SELECT e.*, u.email FROM employers e JOIN users u ON e.user_id = u.id WHERE e.id = $1', [empId]);
+    if (!empRes.rows.length) return res.status(404).json({ message: 'Employer not found.' });
+    const emp = empRes.rows[0];
+
+    await query("UPDATE employers SET is_verified = TRUE, verification_tick_status = 'verified' WHERE id = $1", [empId]);
+
+    await notify(
+      emp.user_id,
+      'Verified Business Tick Granted!',
+      `Congratulations! Your business "${emp.company_name}" has been granted the Akazi Verified Tick. The verified badge is now displayed next to your company name.`,
+      'employer_approval',
+      '/employer/dashboard'
+    );
+
+    sendMailLater({
+      to: emp.email,
+      subject: `Your business "${emp.company_name}" is now Verified on Akazi!`,
+      title: 'Verified Business Tick Granted',
+      intro: `Congratulations! Our team reviewed and confirmed your business credentials. The Verified Tick badge is now live on all your job postings and company profile.`,
+      ctaLabel: 'View Dashboard',
+      ctaUrl: `${CLIENT_URL}/employer/dashboard`
+    });
+
+    audit(req, 'employer.tick_granted', 'employer', empId);
+    res.json({ message: 'Verified Business Tick successfully granted.' });
+  } catch (err) { fail(res, 'Grant tick error:', err, 'Failed to grant verified tick.'); }
+});
+
+// Reject an application for Verified Business Tick
+router.patch('/employers/:id/reject-tick', async (req, res) => {
+  try {
+    const empId = parseInt(req.params.id, 10);
+    const reason = cleanStr(req.body?.reason, 500) || 'Verification documents could not be validated. Please ensure your RDB certificate or business license is valid and clear.';
+    const empRes = await query('SELECT e.*, u.email FROM employers e JOIN users u ON e.user_id = u.id WHERE e.id = $1', [empId]);
+    if (!empRes.rows.length) return res.status(404).json({ message: 'Employer not found.' });
+    const emp = empRes.rows[0];
+
+    await query("UPDATE employers SET is_verified = FALSE, verification_tick_status = 'rejected', verification_tick_notes = $1 WHERE id = $2", [reason, empId]);
+
+    await notify(
+      emp.user_id,
+      'Verification Tick Application Update',
+      `Your application for the Verified Business Tick was not approved: ${reason}. You can update your documents and apply again from your dashboard.`,
+      'employer_approval',
+      '/employer/dashboard'
+    );
+
+    sendMailLater({
+      to: emp.email,
+      subject: `Update on your Akazi Verified Tick application`,
+      title: 'Verification Tick Not Approved',
+      intro: `Your application for the Verified Business Tick for "${emp.company_name}" was not approved: ${reason}. You can re-apply anytime from your employer dashboard.`,
+      ctaLabel: 'Go to Dashboard',
+      ctaUrl: `${CLIENT_URL}/employer/dashboard`
+    });
+
+    audit(req, 'employer.tick_rejected', 'employer', empId, { reason });
+    res.json({ message: 'Verification Tick application declined.' });
+  } catch (err) { fail(res, 'Reject tick error:', err, 'Failed to decline verified tick.'); }
+});
+
+// Revoke an existing Verified Business Tick
+router.patch('/employers/:id/revoke-tick', async (req, res) => {
+  try {
+    const empId = parseInt(req.params.id, 10);
+    const empRes = await query('SELECT e.* FROM employers e WHERE e.id = $1', [empId]);
+    if (!empRes.rows.length) return res.status(404).json({ message: 'Employer not found.' });
+    const emp = empRes.rows[0];
+
+    await query("UPDATE employers SET is_verified = FALSE, verification_tick_status = 'unverified' WHERE id = $1", [empId]);
+    audit(req, 'employer.tick_revoked', 'employer', empId);
+    res.json({ message: 'Verified Business Tick revoked.' });
+  } catch (err) { fail(res, 'Revoke tick error:', err, 'Failed to revoke verified tick.'); }
 });
 
 router.get('/employers', async (req, res) => {
@@ -115,7 +194,7 @@ router.patch('/users/:id/status', async (req, res) => {
 router.get('/jobs', async (req, res) => {
   try {
     const r = await query(
-      `SELECT j.*, e.company_name, e.logo_url, u.email AS employer_email,
+      `SELECT j.*, e.company_name, e.logo_url, e.is_verified, u.email AS employer_email,
               (SELECT COUNT(*)::int FROM applications WHERE job_id = j.id) AS applicant_count
        FROM jobs j JOIN employers e ON j.employer_id = e.id JOIN users u ON e.user_id = u.id ORDER BY j.created_at DESC`);
     res.json({ jobs: r.rows });

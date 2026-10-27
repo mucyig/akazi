@@ -3,8 +3,12 @@ const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
+if (!process.env.TEST_DATABASE_URL) {
+  console.log('Skipping Developer API tests: set TEST_DATABASE_URL to run them.');
+  process.exit(0);
+}
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(48).toString('hex');
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
 require('../src/lib/env');
 const { initDb, query, pool } = require('../src/db');

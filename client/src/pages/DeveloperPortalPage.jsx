@@ -148,7 +148,8 @@ for job in data.get("jobs", []):
       {/* Hero Header */}
       <section className="bg-gradient-to-b from-blue-950 via-blue-900 to-indigo-950 text-white pt-16 pb-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-800/80 border border-blue-700/60 text-xs font-medium text-amber-300 mb-6">
+          <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-blue-800/80 border border-blue-700/60 text-xs font-medium text-amber-300 mb-6">
+            <img src="/icon-192.png" alt="Akazi" className="w-4 h-4 rounded-[4px]" />
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>Akazi Public API v1 · RESTful JSON</span>
           </div>

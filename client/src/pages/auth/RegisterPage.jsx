@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Check, Briefcase, Building2, Upload } from 'luci
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import AuthBackdrop from '../../components/AuthBackdrop';
 
 const EDU = ['Primary', 'Secondary (O-Level)', 'A-Level / TVET', "Bachelor's degree", "Master's or higher"];
 const GENDER = ['Male', 'Female', 'Other / Prefer not to say'];
@@ -178,7 +179,8 @@ export default function RegisterPage() {
   const field = 'w-full text-2xl sm:text-3xl font-semibold bg-transparent border-0 border-b-2 border-zinc-300 focus:border-blue-600 focus:outline-none py-3 placeholder:text-zinc-300';
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] grid lg:grid-cols-[2fr_3fr]">
+    <div className="relative overflow-hidden min-h-[calc(100vh-5rem)] grid lg:grid-cols-[2fr_3fr]">
+      <AuthBackdrop />
       <aside className="hidden lg:flex flex-col justify-between bg-blue-950 text-white p-12">
         <div>
           <p className="text-sm font-semibold tracking-wide text-blue-200">AKAZI</p>
@@ -192,7 +194,15 @@ export default function RegisterPage() {
         </ul>
       </aside>
 
-      <section className="flex flex-col px-6 sm:px-12 lg:px-20 py-8">
+      <section className="relative flex flex-col px-5 sm:px-8 pt-8 pb-28 lg:px-20 lg:py-8">
+        <div className="lg:hidden mb-6 text-white">
+          <Link to="/" className="inline-flex items-center gap-2.5" aria-label="Akazi home">
+            <img src="/icon-192.png" alt="" className="w-9 h-9 rounded-xl ring-1 ring-white/20" />
+            <span className="text-2xl font-extrabold">akazi</span>
+          </Link>
+          <h1 className="mt-4 text-2xl sm:text-3xl font-bold leading-tight">{L === 'rw' ? 'Fungura konti yawe' : 'Create your account'}</h1>
+        </div>
+        <div className="flex-1 flex flex-col w-full max-w-xl mx-auto lg:mx-0 lg:max-w-none rounded-3xl bg-white p-6 sm:p-8 shadow-xl shadow-blue-950/10 ring-1 ring-black/5 lg:rounded-none lg:bg-transparent lg:p-0 lg:shadow-none lg:ring-0">
         {role && (
           <div className="mb-10" aria-label="Progress">
             <div className="h-1.5 rounded-full bg-zinc-200 overflow-hidden"><div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${((step + 1) / total) * 100}%` }} /></div>
@@ -303,6 +313,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="mt-8 text-sm text-zinc-500">{x('Already have an account?')} <Link to="/login" className="font-semibold text-blue-700 hover:underline">{x('Sign in')}</Link></p>
+        </div>
       </section>
     </div>
   );

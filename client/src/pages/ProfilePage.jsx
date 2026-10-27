@@ -8,6 +8,7 @@ import {
   User, 
   Building2, 
   ShieldCheck, 
+  BadgeCheck,
   Mail, 
   Phone, 
   FileText, 
@@ -129,9 +130,27 @@ export default function ProfilePage() {
                 {language === 'rw' ? 'Amakuru y\'Ubucuruzi' : 'Business Details'}
               </h3>
               <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-zinc-500">{language === 'rw' ? 'Izina ry\'ubucuruzi' : 'Business Name'}:</span>
-                  <span className="font-semibold text-zinc-900">{employer.company_name}</span>
+                  <span className="font-semibold text-zinc-900 inline-flex items-center gap-1.5">
+                    {employer.company_name}
+                    {employer.is_verified && (
+                      <BadgeCheck className="w-4 h-4 text-blue-600 shrink-0 inline" title="Verified Business" />
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">{language === 'rw' ? 'Ikimenyetso (Logo)' : 'Company Logo'}:</span>
+                  <div className="flex items-center gap-2">
+                    {employer.logo_url ? (
+                      <img src={employer.logo_url} alt={employer.company_name} className="w-8 h-8 rounded-lg object-contain border border-zinc-200 bg-white p-0.5" />
+                    ) : (
+                      <span className="text-zinc-400 italic text-[11px]">{language === 'rw' ? 'Nta kirimo' : 'No logo uploaded'}</span>
+                    )}
+                    <a href="/employer/dashboard" className="text-blue-700 hover:underline text-[11px] font-semibold ml-1.5">
+                      {employer.logo_url ? (language === 'rw' ? 'Hindura' : 'Change') : (language === 'rw' ? 'Shyiramo' : 'Upload')}
+                    </a>
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-500">{language === 'rw' ? 'Ibyo bukora' : 'Sector'}:</span>

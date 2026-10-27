@@ -29,8 +29,16 @@ CREATE TABLE IF NOT EXISTS employers (
   logo_url TEXT,
   registration_doc_url TEXT,
   payment_status VARCHAR(20) NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','pending','paid','failed')),
+  is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  verification_tick_status VARCHAR(20) NOT NULL DEFAULT 'unverified' CHECK (verification_tick_status IN ('unverified','applied','verified','rejected')),
+  verification_tick_doc_url TEXT,
+  verification_applied_at TIMESTAMPTZ,
+  verification_tick_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_employers_is_verified ON employers(is_verified);
+CREATE INDEX IF NOT EXISTS idx_employers_tick_status ON employers(verification_tick_status);
 
 CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,

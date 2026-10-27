@@ -9,6 +9,7 @@ import {
   ArrowRight, 
   ArrowLeft,
   ShieldCheck,
+  BadgeCheck,
   User,
   Phone,
   FileCheck
@@ -190,8 +191,11 @@ export default function ApplyModal({ job, onClose, onSuccess }) {
         {/* Modal Top Bar */}
         <div className="px-6 py-5 border-b border-zinc-100 flex items-start justify-between bg-zinc-50/50">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-              {job.company_name}
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+              <span>{job.company_name}</span>
+              {job.is_verified && (
+                <BadgeCheck className="w-3.5 h-3.5 text-blue-600 shrink-0 inline" title="Verified Business" />
+              )}
             </div>
             <h2 className="text-base sm:text-lg font-bold text-zinc-900 leading-snug">
               {job.title}

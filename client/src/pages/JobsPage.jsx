@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import { formatRelativeTime } from '../utils/time';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { formatSalary } from '../utils/format';
+import { formatSalary, formatJobType } from '../utils/format';
 import ReportJobModal from '../components/ReportJobModal';
 import { getReportedJobIds, markJobReported } from '../utils/reportedJobs';
 
@@ -91,7 +91,15 @@ export default function JobsPage() {
 
     scored.forEach(({ job: j }) => {
       const k = String(j.employer_id ?? j.company_name ?? 'x');
-      (g[k] ||= { key: k, name: j.company_name || tr("Verified Employer", "Umukoresha wemewe"), place: j.employer_location || j.location, industry: j.industry, positions: [] }).positions.push(j);
+      (g[k] ||= {
+        key: k,
+        name: j.company_name || tr("Employer", "Umukoresha"),
+        logo_url: j.logo_url || null,
+        place: j.employer_location || j.location,
+        industry: j.industry,
+        is_verified: !!j.is_verified,
+        positions: []
+      }).positions.push(j);
     });
     return Object.values(g);
   }, [jobs, q, loc, tr]);
@@ -190,11 +198,20 @@ export default function JobsPage() {
             <section key={g.key} className="bg-white border rule rounded-2xl overflow-hidden">
               <button onClick={() => toggle(g.key)} aria-expanded={open} disabled={!!searching}
                 className="w-full flex items-center gap-4 p-4 sm:p-5 text-left hover:bg-blue-50/50 disabled:hover:bg-transparent">
-                <span className="w-12 h-12 rounded-xl bg-blue-900 text-white display text-xl font-bold grid place-items-center shrink-0">{g.name[0]}</span>
+                {g.logo_url ? (
+                  <img src={g.logo_url} alt={g.name} className="w-12 h-12 rounded-xl object-contain border border-zinc-200 bg-white p-1 shrink-0" />
+                ) : (
+                  <span className="w-12 h-12 rounded-xl bg-blue-900 text-white display text-xl font-bold grid place-items-center shrink-0">{g.name[0]}</span>
+                )}
                 <span className="flex-1 min-w-0">
                   <span className="flex flex-wrap items-center gap-x-2">
                     <span className="font-bold text-zinc-950">{g.name}</span>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800"><BadgeCheck className="w-4 h-4" />{tr("Verified", "Wemewe")}</span>
+                    {g.is_verified && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800">
+                        <BadgeCheck className="w-4 h-4 text-blue-600" />
+                        {tr("Verified", "Wemewe")}
+                      </span>
+                    )}
                   </span>
                   <span className="block text-sm text-zinc-500 truncate">{[g.place, g.industry].filter(Boolean).join(' · ')}</span>
                 </span>
@@ -208,7 +225,7 @@ export default function JobsPage() {
                       <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-blue-50/50 group">
                         <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0">
                           <span className="block font-semibold text-zinc-900 group-hover:text-blue-800">{j.title}</span>
-                          <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, j.job_type, formatSalary(j.salary_range), formatRelativeTime(j.created_at, language)].filter(Boolean).join(' · ')}</span>
+                          <span className="block text-xs text-zinc-500 mt-0.5">{[j.location, formatJobType(j.job_type, language), formatSalary(j.salary_range), formatRelativeTime(j.created_at, language)].filter(Boolean).join(' · ')}</span>
                         </Link>
                         <div className="flex items-center gap-2 shrink-0">
                           {!reportedJobIds.has(Number(j.id)) && (

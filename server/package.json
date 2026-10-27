@@ -5,11 +5,12 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "simulate": "node scripts-dev/traffic-simulation.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/db/seed.js",
     "create-admin": "node src/scripts/create-admin.js",
     "migrate-uploads": "node src/scripts/migrate-uploads-to-r2.js",
-    "test": "node --test",
+    "test": "node --require ./test/isolate-env.js --test \"test/*.test.js\"",
     "backfill-scans": "node src/scripts/backfill-scans.js",
     "reconcile-payments": "node src/scripts/reconcile-payments.js",
     "check-db": "node src/scripts/check-db.js",

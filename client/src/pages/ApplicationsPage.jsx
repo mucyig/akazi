@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, CheckCircle2, Check, XCircle, Clock3, ArrowRight, ChevronRight, Briefcase, Sparkles, Flag } from 'lucide-react';
+import { MapPin, CheckCircle2, Check, XCircle, Clock3, ArrowRight, ChevronRight, Briefcase, Sparkles, Flag, BadgeCheck } from 'lucide-react';
 import { MessageButton } from '../components/ChatDock';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -155,7 +155,12 @@ export default function ApplicationsPage() {
                   <div className="p-5 sm:p-7 pl-6 sm:pl-9">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-blue-800">{app.company_name}</p>
+                        <p className="text-sm font-semibold text-blue-800 inline-flex items-center gap-1.5">
+                          <span>{app.company_name}</span>
+                          {app.is_verified && (
+                            <BadgeCheck className="w-3.5 h-3.5 text-blue-600 shrink-0 inline" title="Verified Business" />
+                          )}
+                        </p>
                         <Link to={`/jobs/${app.job_id}`} className="display text-2xl font-semibold text-zinc-950 hover:underline underline-offset-4 leading-snug block mt-0.5">{app.job_title}</Link>
                         <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-500">
                           <span className="inline-flex items-center gap-1.5"><MapPin className="w-4 h-4 text-zinc-400" />{app.job_location}</span>

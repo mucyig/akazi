@@ -86,6 +86,13 @@ async function initDb() {
       "CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)",
       "CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)",
       "CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active)",
+      "ALTER TABLE employers ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE",
+      "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_tick_status VARCHAR(20) NOT NULL DEFAULT 'unverified'",
+      "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_tick_doc_url TEXT",
+      "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_applied_at TIMESTAMPTZ",
+      "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_tick_notes TEXT",
+      "CREATE INDEX IF NOT EXISTS idx_employers_is_verified ON employers(is_verified)",
+      "CREATE INDEX IF NOT EXISTS idx_employers_tick_status ON employers(verification_tick_status)",
     ];
     for (const sql of alters) await client.query(sql);
 

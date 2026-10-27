@@ -255,7 +255,7 @@ export default function EmployerPayment() {
                 <span className="text-sm font-semibold text-zinc-500">RWF</span>
               </p>
             </div>
-            <BadgeCheck className="w-9 h-9 text-blue-700/70" />
+            <Wallet className="w-9 h-9 text-blue-700/70" />
           </div>
 
           <div className="rounded-2xl border border-zinc-200 p-4">

@@ -42,7 +42,7 @@ export default function EmployerPendingStatus() {
               <ShieldCheck className="w-8 h-8 text-emerald-300" />
             </div>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-100 mb-3">
-              <Sparkles className="w-3.5 h-3.5" /> {t('employerStatus.verifiedBadge')}
+              <Sparkles className="w-3.5 h-3.5" /> {language === 'rw' ? 'Konti Yemejwe' : 'Account Approved'}
             </span>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t('employerStatus.approvedTitle')}</h1>
             <p className="mt-2 text-xs sm:text-sm text-emerald-100/90 max-w-sm mx-auto leading-relaxed">{t('employerStatus.approvedSubtitle')}</p>

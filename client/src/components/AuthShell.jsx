@@ -6,13 +6,27 @@ import { Check } from 'lucide-react';
 // Left: a calm green panel (optionally showing the steps of the flow). Right: the form.
 export default function AuthShell({ headline, lead, steps, current = 0, children }) {
   return (
-    <div className="grid lg:grid-cols-[5fr_6fr] min-h-[calc(100vh-4rem)]">
+    <div className="relative overflow-hidden grid lg:grid-cols-[5fr_6fr] min-h-[calc(100vh-4rem)]">
+      {/* Phones and tablets: green top-left, off-white bottom-right, split by a smooth curve */}
+      <svg
+        className="absolute inset-0 w-full h-full lg:hidden pointer-events-none"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M0,90 C35,70 25,25 95,0 L0,0 Z" fill="#17483A" />
+        <path d="M0,90 C35,70 25,25 95,0" fill="none" stroke="#F2C10E" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+      </svg>
+
       <aside className="hidden lg:flex relative overflow-hidden flex-col justify-between bg-blue-950 text-white p-12 xl:p-16">
         <div className="absolute -right-28 -bottom-28 w-80 h-80 rounded-full bg-amber-500" aria-hidden="true" />
         <div className="absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-blue-950" aria-hidden="true" />
-        <Link to="/" className="relative flex items-baseline gap-0.5 w-fit" aria-label="Akazi home">
-          <span className="display text-3xl font-bold">akazi</span>
-          <span className="w-2 h-2 rounded-full bg-amber-500" />
+        <Link to="/" className="relative flex items-center gap-3 w-fit group" aria-label="Akazi home">
+          <img src="/icon-192.png" alt="Akazi logo" className="w-11 h-11 rounded-2xl ring-1 ring-white/15 group-hover:ring-white/30 transition" />
+          <span className="flex items-baseline gap-0.5">
+            <span className="display text-3xl font-bold">akazi</span>
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+          </span>
         </Link>
 
         <div className="relative max-w-md">
@@ -38,8 +52,17 @@ export default function AuthShell({ headline, lead, steps, current = 0, children
         <p className="relative text-xs text-blue-300">Kigali, Rwanda</p>
       </aside>
 
-      <main className="flex items-center justify-center px-5 sm:px-8 py-12">
-        <div className="w-full max-w-md anim-fade-up">{children}</div>
+      <main className="relative flex flex-col items-center justify-start lg:justify-center px-5 sm:px-8 pt-8 pb-28 lg:py-12">
+        <div className="lg:hidden w-full max-w-md mb-6 text-white">
+          <Link to="/" className="inline-flex items-center gap-2.5" aria-label="Akazi home">
+            <img src="/icon-192.png" alt="" className="w-9 h-9 rounded-xl ring-1 ring-white/20" />
+            <span className="display text-2xl font-bold">akazi</span>
+          </Link>
+          <h1 className="display mt-4 text-2xl sm:text-3xl font-semibold leading-tight max-w-[16rem] sm:max-w-sm">{headline}</h1>
+        </div>
+        <div className="w-full max-w-md anim-fade-up rounded-3xl bg-white p-6 sm:p-8 shadow-xl shadow-blue-950/10 ring-1 ring-black/5 lg:rounded-none lg:bg-transparent lg:p-0 lg:shadow-none lg:ring-0">
+          {children}
+        </div>
       </main>
     </div>
   );
