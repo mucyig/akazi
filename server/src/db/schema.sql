@@ -37,9 +37,6 @@ CREATE TABLE IF NOT EXISTS employers (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_employers_is_verified ON employers(is_verified);
-CREATE INDEX IF NOT EXISTS idx_employers_tick_status ON employers(verification_tick_status);
-
 CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,
   employer_id INTEGER REFERENCES employers(id) ON DELETE CASCADE,
