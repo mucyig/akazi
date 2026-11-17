@@ -94,7 +94,7 @@ async function requireActiveEmployer(req, res, next) {
     const empRes = await query('SELECT payment_status FROM employers WHERE user_id = $1', [req.user.id]);
     const paymentStatus = (empRes.rows[0] && empRes.rows[0].payment_status) || 'unpaid';
     if (paymentStatus !== 'paid') {
-      return res.status(403).json({ message: 'Please complete your 5,000 RWF verification payment to continue.', code: 'EMPLOYER_UNPAID', payment_status: paymentStatus });
+      return res.status(403).json({ message: 'Please complete your 100 RWF verification payment to continue.', code: 'EMPLOYER_UNPAID', payment_status: paymentStatus });
     }
   } catch {
     return res.status(500).json({ message: 'Could not verify your payment status. Please try again.' });

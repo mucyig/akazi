@@ -6,7 +6,7 @@ export const COMPANY = {
   name: 'Akazi',                      // CONFIRM: your registered legal name, e.g. "Akazi Ltd"
   email: 'support@akazi.rw',          // CONFIRM: a mailbox you actually read
   address: 'Kigali, Rwanda',          // CONFIRM: your registered address
-  fee: '5,000 RWF',                   // must match PAYPACK_EMPLOYER_FEE_RWF on the server
+  fee: '100 RWF',                     // must match PAYPACK_EMPLOYER_FEE_RWF on the server
   updated: '2026-10-10',              // change this date whenever the text changes (YYYY-MM-DD)
   responseDays: 30,                   // how fast you promise to answer privacy requests
   applicationRetentionMonths: 24,     // CONFIRM: how long applications are kept after a job closes

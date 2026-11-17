@@ -53,8 +53,8 @@ router.patch('/employers/:userId/approve', async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
     const r = await query("UPDATE users SET status = 'approved', updated_at = NOW() WHERE id = $1 AND role = 'employer' AND status = 'pending' RETURNING id, email, name", [userId]);
     if (!r.rows.length) return res.status(409).json({ message: 'This employer is not waiting for review.' });
-    await notify(userId, 'Account Approved - one last step', 'Your employer account was approved. Pay the 5,000 RWF registration fee to activate your account and start posting jobs.', 'employer_approval', '/employer/status');
-    sendMailLater({ to: r.rows[0].email, subject: 'Your employer account was approved on Akazi', title: 'Account Approved', intro: 'One last step: pay the 5,000 RWF registration fee to activate your account and start posting jobs.', ctaLabel: 'Complete payment', ctaUrl: `${CLIENT_URL}/employer/payment` });
+    await notify(userId, 'Account Approved - one last step', 'Your employer account was approved. Pay the 100 RWF registration fee to activate your account and start posting jobs.', 'employer_approval', '/employer/status');
+    sendMailLater({ to: r.rows[0].email, subject: 'Your employer account was approved on Akazi', title: 'Account Approved', intro: 'One last step: pay the 100 RWF registration fee to activate your account and start posting jobs.', ctaLabel: 'Complete payment', ctaUrl: `${CLIENT_URL}/employer/payment` });
     audit(req, 'employer.approved', 'user', userId);
     res.json({ message: 'Employer account approved successfully.' });
   } catch (err) { fail(res, 'Approve employer error:', err, 'Failed to approve employer.'); }

@@ -4,7 +4,7 @@
 const { withTransaction } = require('../db');
 const { buildWebhookUpdatePayload } = require('./payment-webhook');
 
-const EMPLOYER_FEE = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '5000', 10);
+const EMPLOYER_FEE = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '100', 10);
 
 async function settlePayment(ref, confirmedData, rawText, { source = 'webhook', clientIp = null, actorId = null } = {}) {
   return await withTransaction(async (q) => {

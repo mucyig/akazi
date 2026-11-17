@@ -215,10 +215,10 @@ export const translations = {
       signOut: 'Sign Out',
       verifiedBadge: 'Business Verified',
       approvedTitle: 'Account Approved - Activate hiring',
-      approvedSubtitle: 'Our team approved your employer account. Pay the one-time 5,000 RWF registration fee to activate your account and start posting jobs.',
+      approvedSubtitle: 'Our team approved your employer account. Pay the one-time 100 RWF registration fee to activate your account and start posting jobs.',
       oneTimeFee: 'One-time registration fee',
       statusVerifiedText: 'Approved',
-      payNow: 'Pay 5,000 RWF now'
+      payNow: 'Pay 100 RWF now'
     },
     employerPayment: {
       stepLabel: 'Step 13 of 13',
@@ -229,7 +229,7 @@ export const translations = {
       numberLabel: 'Mobile money number',
       edit: 'Edit',
       save: 'Save',
-      payBtn: 'Pay 5,000 RWF',
+      payBtn: 'Pay 100 RWF',
       paying: 'Sending request...',
       note: 'You will receive a prompt on your phone. Works with MTN MoMo, Airtel Money and Tigo Cash.',
       pendingTitle: 'Check your phone',
@@ -644,10 +644,10 @@ export const translations = {
       signOut: 'Sohoka muri Konti',
       verifiedBadge: 'Ubucuruzi Bwemejwe',
       approvedTitle: 'Konti Yemejwe - Fungura gutanga akazi',
-      approvedSubtitle: 'Itsinda ryacu ryemeje konti yawe. Wishyure amafaranga 5,000 y\'iyandikisha kugira ngo utangire gutangaza imirimo.',
+      approvedSubtitle: 'Itsinda ryacu ryemeje konti yawe. Wishyure amafaranga 100 y\'iyandikisha kugira ngo utangire gutangaza imirimo.',
       oneTimeFee: 'Amafaranga y\'iyandikisha (incuro imwe)',
       statusVerifiedText: 'Byemejwe',
-      payNow: 'Ishyura 5,000 RWF ubu'
+      payNow: 'Ishyura 100 RWF ubu'
     },
     employerPayment: {
       stepLabel: 'Intambwe 13 kuri 13',
@@ -658,7 +658,7 @@ export const translations = {
       numberLabel: 'Numero ya Mobile Money',
       edit: 'Hindura',
       save: 'Bika',
-      payBtn: 'Ishyura 5,000 RWF',
+      payBtn: 'Ishyura 100 RWF',
       paying: 'Birimo koherezwa...',
       note: 'Uzabona ubutumwa kuri telefoni yawe. Bikoresha MTN MoMo, Airtel Money na Tigo Cash.',
       pendingTitle: 'Reba telefoni yawe',

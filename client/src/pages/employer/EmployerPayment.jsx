@@ -230,7 +230,7 @@ export default function EmployerPayment() {
     }
   };
 
-  const amount = '5,000';
+  const amount = '100';
   const progress = currentPhase === 'paid' ? 'w-full' : (currentPhase === 'pending' || currentPhase === 'timeout') ? 'w-11/12' : 'w-10/12';
   const Heading = currentPhase === 'paid' ? t('employerPayment.paidTitle')
     : currentPhase === 'failed' ? t('employerPayment.failedTitle')

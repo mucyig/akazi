@@ -24,7 +24,7 @@ function withTimeout(promise, ms) {
 }
 
 // Employer verification fee (RWF) - paid AFTER admin approval.
-const EMPLOYER_FEE = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '5000', 10);
+const EMPLOYER_FEE = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '100', 10);
 
 // Normalize a Rwandan mobile money number to local 07XXXXXXXX format.
 function normalizeRwPhone(raw) {

@@ -53,7 +53,7 @@ export default function EmployerPendingStatus() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700/70">{t('employerStatus.oneTimeFee')}</p>
                 <p className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-3xl font-extrabold text-zinc-950 tabular-nums">5,000</span>
+                  <span className="text-3xl font-extrabold text-zinc-950 tabular-nums">100</span>
                   <span className="text-sm font-semibold text-zinc-500">RWF</span>
                 </p>
               </div>
