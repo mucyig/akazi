@@ -46,12 +46,17 @@ async function settlePayment(ref, confirmedData, rawText, { source = 'webhook', 
       return { duplicate: true, status: payment.status, repaired };
     }
 
-    // 4. Validate payment amount: it must be present AND equal to what we asked for
-    if (info.status === 'paid' && (confirmedData?.amount === undefined || confirmedData?.amount === null || Number(confirmedData.amount) !== Number(payment.amount))) {
-      console.error(`[Payments] Amount mismatch for ${ref}: expected ${payment.amount}, got ${confirmedData?.amount}`);
+    // 4. Validate payment amount: it must be present AND equal to what we asked for (or current configured fee)
+    const expectedAmount = Number(payment.amount);
+    const configuredFee = parseInt(process.env.PAYPACK_EMPLOYER_FEE_RWF || '100', 10);
+    const confirmedAmount = Number(confirmedData?.amount);
+    const amountMatches = !isNaN(confirmedAmount) && (confirmedAmount === expectedAmount || confirmedAmount === configuredFee);
+
+    if (info.status === 'paid' && !amountMatches) {
+      console.error(`[Payments] Amount mismatch for ${ref}: expected ${expectedAmount} (or ${configuredFee}), got ${confirmedAmount}`);
       await q(
         'INSERT INTO audit_log (actor_id, action, target_type, target_id, meta, ip) VALUES ($1,$2,$3,$4,$5,$6)',
-        [actorId, 'payment.amount_mismatch', 'payment', ref, JSON.stringify({ expected: payment.amount, got: confirmedData?.amount ?? null, source }), clientIp]
+        [actorId, 'payment.amount_mismatch', 'payment', ref, JSON.stringify({ expected: expectedAmount, configuredFee, got: confirmedAmount, source }), clientIp]
       );
       return { rejected: true, reason: 'amount_mismatch' };
     }
@@ -64,9 +69,9 @@ async function settlePayment(ref, confirmedData, rawText, { source = 'webhook', 
     // 6. Final state: paid
     if (info.status === 'paid') {
       await q(
-        `UPDATE payments SET status = 'paid', provider = $1, provider_status = $2, raw_payload = $3, updated_at = NOW()
-         WHERE id = $4`,
-        [info.provider, info.providerStatus, info.rawPayload, payment.id]
+        `UPDATE payments SET status = 'paid', provider = $1, provider_status = $2, raw_payload = $3, amount = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [info.provider, info.providerStatus, info.rawPayload, confirmedAmount || payment.amount, payment.id]
       );
       await q("UPDATE employers SET payment_status = 'paid' WHERE id = $1", [payment.employer_id]);
 

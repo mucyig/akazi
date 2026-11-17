@@ -68,14 +68,14 @@ router.post('/paypack/initiate', authenticateToken, requireRole('employer'), ini
     if (inflight.rows.length) return res.status(409).json({ message: 'A payment request is already waiting for approval on your phone. Please approve it, or wait 3 minutes to try again.' });
     // Older prompts may still be answered on the phone: ask PayPack what happened to them before sending another,
     // otherwise the same employer could be charged twice.
-    const older = await query("SELECT ref FROM payments WHERE employer_id = $1 AND status = 'pending' AND ref IS NOT NULL ORDER BY created_at DESC LIMIT 5", [employer.id]);
+    const older = await query("SELECT id, ref, created_at FROM payments WHERE employer_id = $1 AND status = 'pending' AND ref IS NOT NULL ORDER BY created_at DESC LIMIT 5", [employer.id]);
     for (const row of older.rows) {
       let live;
       try {
         live = await withTimeout(paypack.findTransaction(row.ref), 15000);
       } catch (e) {
         console.warn('[Payments] Could not check earlier payment', row.ref, e.message);
-        return res.status(409).json({ message: 'We are still checking your previous payment request. Please wait a few minutes before trying again.' });
+        continue;
       }
       const confirmed = live?.data || live;
       const info = buildWebhookUpdatePayload(confirmed || {}, JSON.stringify(confirmed || {}));
@@ -83,7 +83,14 @@ router.post('/paypack/initiate', authenticateToken, requireRole('employer'), ini
         const settled = await settlePayment(row.ref, confirmed, JSON.stringify(confirmed), { source: 'initiate_check', clientIp: req.clientIp, actorId: req.user.id });
         if (settled?.status === 'paid') return res.json({ alreadyPaid: true, status: 'paid', amount: EMPLOYER_FEE });
       } else {
-        return res.status(409).json({ message: 'Your previous payment request is still waiting on your phone. Please approve it, or wait for it to expire before trying again.' });
+        // If still pending, check age: phone USSD prompts expire within 90-120 seconds
+        const ageSec = Math.floor((Date.now() - new Date(row.created_at).getTime()) / 1000);
+        if (ageSec > 180) {
+          // Stale prompt: mark failed/expired so it stops blocking new payments
+          await query("UPDATE payments SET status = 'failed', provider_status = 'expired', updated_at = NOW() WHERE id = $1 AND status = 'pending'", [row.id]);
+        } else {
+          return res.status(409).json({ message: 'A payment request is already waiting for approval on your phone. Please approve it, or wait 3 minutes to try again.' });
+        }
       }
     }
     const today = await query("SELECT COUNT(*)::int AS n FROM payments WHERE employer_id = $1 AND created_at > NOW() - INTERVAL '24 hours'", [employer.id]);
@@ -134,11 +141,11 @@ router.get('/paypack/status/:ref', authenticateToken, async (req, res) => {
     const ageSeconds = Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
     const expiresAt = new Date(createdAt + 3 * 60 * 1000).toISOString();
 
-    // If still pending, older than 20 seconds, and PayPack is configured: check PayPack with throttling
-    if (p.status === 'pending' && ageSeconds >= 20 && paypack.isConfigured()) {
+    // If still pending, check PayPack with throttling
+    if (p.status === 'pending' && ageSeconds >= 5 && paypack.isConfigured()) {
       const lastCheck = statusCheckThrottleMap.get(ref) || 0;
       const now = Date.now();
-      if (now - lastCheck >= 10000) {
+      if (now - lastCheck >= 5000) {
         statusCheckThrottleMap.set(ref, now);
         try {
           const live = await withTimeout(paypack.findTransaction(ref), 15000);

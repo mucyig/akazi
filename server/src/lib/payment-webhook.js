@@ -1,23 +1,24 @@
 function normalizePaypackStatus(data = {}) {
-  const status = data?.status;
+  const rawStatus = data?.status || data?.data?.status;
+  const status = typeof rawStatus === 'string' ? rawStatus.toLowerCase().trim() : '';
 
-  if (status === 'successful') {
+  if (status === 'successful' || status === 'success' || status === 'paid' || status === 'completed') {
     return {
       status: 'paid',
-      providerStatus: status,
+      providerStatus: data?.status || status,
     };
   }
 
-  if (status === 'failed') {
+  if (status === 'failed' || status === 'cancelled' || status === 'declined' || status === 'expired') {
     return {
       status: 'failed',
-      providerStatus: status,
+      providerStatus: data?.status || status,
     };
   }
 
   return {
     status: 'pending',
-    providerStatus: status || 'pending',
+    providerStatus: data?.status || 'pending',
   };
 }
 
