@@ -94,9 +94,41 @@ async function cashin({ amount, number, idempotencyKey }) {
 }
 
 // Look up a transaction by its PayPack reference.
+// Note: PayPack's /transactions/find/:ref can return 404 for recently processed or in-flight cashin events.
+// In that case, we fall back to /events/transactions?ref=:ref which reliably tracks all transaction events.
 async function findTransaction(ref) {
   const token = await getAccessToken();
-  return paypackFetch(`/transactions/find/${encodeURIComponent(ref)}`, { token });
+
+  try {
+    const direct = await paypackFetch(`/transactions/find/${encodeURIComponent(ref)}`, { token });
+    if (direct && (direct.status || direct.data?.status)) {
+      return direct;
+    }
+  } catch (err) {
+    if (err.status !== 404 && !/not found/i.test(err.message)) {
+      throw err;
+    }
+  }
+
+  // Fallback: Query /events/transactions?ref={ref}
+  const events = await paypackFetch(`/events/transactions?ref=${encodeURIComponent(ref)}`, { token });
+  if (events) {
+    const txs = events.transactions || [];
+    // Prioritize processed/successful event if multiple states exist
+    const processed = txs.find((t) => {
+      const s = String(t.data?.status || '').toLowerCase();
+      return s === 'successful' || s === 'success' || s === 'paid' || t.event_kind === 'transaction:processed';
+    }) || txs[0];
+
+    if (processed?.data) {
+      return { data: processed.data };
+    }
+    if (events.status && events.ref) {
+      return { data: events };
+    }
+  }
+
+  throw new Error(`Transaction ${ref} not found`);
 }
 
 // Verify the X-Paypack-Signature header (base64 HMAC-SHA256 of the raw body).
