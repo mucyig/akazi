@@ -129,6 +129,29 @@ router.get('/paypack/latest', authenticateToken, async (req, res) => {
   }
 });
 
+// Cancel any in-flight pending payment (e.g. user entered wrong number or wants to retry)
+router.post('/paypack/cancel', authenticateToken, requireRole('employer'), async (req, res) => {
+  try {
+    const empRes = await query('SELECT id FROM employers WHERE user_id = $1', [req.user.id]);
+    if (!empRes.rows.length) return res.status(404).json({ message: 'Employer profile not found.' });
+    const employerId = empRes.rows[0].id;
+
+    await query(
+      "UPDATE payments SET status = 'failed', provider_status = 'cancelled_by_user', updated_at = NOW() WHERE employer_id = $1 AND status = 'pending'",
+      [employerId]
+    );
+    await query(
+      "UPDATE employers SET payment_status = 'unpaid', updated_at = NOW() WHERE id = $1 AND payment_status <> 'paid'",
+      [employerId]
+    );
+
+    res.json({ message: 'Pending payment cancelled.', cancelled: true });
+  } catch (err) {
+    console.error('PayPack cancel error:', err.message);
+    res.status(500).json({ message: 'Failed to cancel the pending payment.' });
+  }
+});
+
 router.get('/paypack/status/:ref', authenticateToken, async (req, res) => {
   try {
     const ref = String(req.params.ref).slice(0, 100);

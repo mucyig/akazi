@@ -201,6 +201,16 @@ export default function EmployerPayment() {
     }
   };
 
+  const cancelRequest = async () => {
+    stopPolling();
+    try {
+      await api.post('/payments/paypack/cancel');
+    } catch { /* ignore */ }
+    setRef(null);
+    setPhase('confirm');
+    setError('');
+  };
+
   const handleManualCheck = async () => {
     if (!ref || checkingManual) return;
     setCheckingManual(true);
@@ -314,7 +324,7 @@ export default function EmployerPayment() {
           </div>
           {ref && <p className="text-[11px] text-zinc-400">Ref: <span className="font-mono">{String(ref).slice(0, 8)}…</span></p>}
           <div className="flex items-center justify-center gap-3 pt-1">
-            <button onClick={() => { stopPolling(); setPhase('confirm'); setError(''); }} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">{t('employerPayment.retry')}</button>
+            <button onClick={cancelRequest} className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">{t('employerPayment.retry')}</button>
           </div>
         </div>
       )}
@@ -340,7 +350,7 @@ export default function EmployerPayment() {
               {checkingManual ? t('employerPayment.checking') : t('employerPayment.checkStatusBtn')}
             </button>
             <button
-              onClick={() => { stopPolling(); setPhase('confirm'); setError(''); }}
+              onClick={cancelRequest}
               className="w-full py-2.5 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition"
             >
               {t('employerPayment.retry')}
