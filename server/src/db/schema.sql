@@ -150,26 +150,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(lower(email));
-CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role, status);
-CREATE INDEX IF NOT EXISTS idx_jobs_employer_id ON jobs(employer_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_jobs_active_created ON jobs(status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category);
-CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location);
-CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id);
-CREATE INDEX IF NOT EXISTS idx_applications_employee ON applications(employee_id);
-CREATE INDEX IF NOT EXISTS idx_applications_job_status ON applications(job_id, status);
-CREATE INDEX IF NOT EXISTS idx_applications_emp_status ON applications(employee_id, status);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_payments_employer ON payments(employer_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
-CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, purpose);
-CREATE INDEX IF NOT EXISTS idx_chat_app ON chat_messages(application_id);
-CREATE INDEX IF NOT EXISTS idx_chat_app_created ON chat_messages(application_id, created_at ASC);
-CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
-
 CREATE TABLE IF NOT EXISTS file_scans (
   key TEXT PRIMARY KEY,
   sha256 TEXT NOT NULL,
@@ -178,9 +158,6 @@ CREATE TABLE IF NOT EXISTS file_scans (
   detail TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_file_scans_sha256 ON file_scans(sha256);
-CREATE INDEX IF NOT EXISTS idx_file_scans_status ON file_scans(status);
 
 CREATE TABLE IF NOT EXISTS reports (
   id SERIAL PRIMARY KEY,
@@ -195,10 +172,6 @@ CREATE TABLE IF NOT EXISTS reports (
   reviewed_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_reports_job ON reports(job_id);
-CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
-CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC);
-
 -- Developer API Keys
 CREATE TABLE IF NOT EXISTS api_keys (
   id SERIAL PRIMARY KEY,
@@ -212,7 +185,3 @@ CREATE TABLE IF NOT EXISTS api_keys (
   last_used_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
-CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
-CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active);

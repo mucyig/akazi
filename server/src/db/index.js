@@ -47,15 +47,17 @@ async function initDb() {
   try {
     await client.query("SET TIME ZONE 'UTC'");
     await client.query('SELECT pg_advisory_lock(727001)');
+
     // Older databases: remember whether the verification column is new so existing users are grandfathered in
     const col = await client.query("SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email_verified_at'");
     const usersExist = await client.query("SELECT to_regclass('public.users') AS t");
     const hadVerifyColumn = col.rows.length > 0;
 
+    // 1. Ensure all base tables exist before running column migrations
     await client.query(fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8'));
 
-    // Idempotent migrations for databases created by earlier versions
-    const alters = [
+    // 2. Idempotent column migrations for databases created by earlier versions
+    const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER NOT NULL DEFAULT 0",
@@ -64,38 +66,20 @@ async function initDb() {
       "ALTER TABLE applications ADD COLUMN IF NOT EXISTS status_changed_at TIMESTAMPTZ",
       "ALTER TABLE applications ADD COLUMN IF NOT EXISTS result_seen_at TIMESTAMPTZ",
       "ALTER TABLE employers ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) NOT NULL DEFAULT 'unpaid'",
-      "ALTER TABLE payments ADD COLUMN IF NOT EXISTS provider_status VARCHAR(30)",
-      "ALTER TABLE payments ADD COLUMN IF NOT EXISTS raw_payload TEXT",
-      "ALTER TABLE job_seekers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT 'other'",
-      "ALTER TABLE job_seekers DROP COLUMN IF EXISTS national_id",
-      "ALTER TABLE audit_log ALTER COLUMN target_id TYPE VARCHAR(255)",
-      "CREATE INDEX IF NOT EXISTS idx_jobs_employer_id ON jobs(employer_id)",
-      "CREATE INDEX IF NOT EXISTS idx_jobs_active_created ON jobs(status, created_at DESC)",
-      "CREATE INDEX IF NOT EXISTS idx_applications_job_status ON applications(job_id, status)",
-      "CREATE INDEX IF NOT EXISTS idx_applications_emp_status ON applications(employee_id, status)",
-      "CREATE INDEX IF NOT EXISTS idx_chat_app_created ON chat_messages(application_id, created_at ASC)",
-      "CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC)",
-      "CREATE TABLE IF NOT EXISTS file_scans (key TEXT PRIMARY KEY, sha256 TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','clean','infected','error')), scanned_at TIMESTAMPTZ, detail TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)",
-      "CREATE INDEX IF NOT EXISTS idx_file_scans_sha256 ON file_scans(sha256)",
-      "CREATE INDEX IF NOT EXISTS idx_file_scans_status ON file_scans(status)",
-      "CREATE TABLE IF NOT EXISTS reports (id SERIAL PRIMARY KEY, job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, reason VARCHAR(50) NOT NULL, details TEXT, status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'dismissed', 'action_taken')), action_notes TEXT, client_ip VARCHAR(64), created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, reviewed_at TIMESTAMPTZ)",
-      "CREATE INDEX IF NOT EXISTS idx_reports_job ON reports(job_id)",
-      "CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)",
-      "CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC)",
-      "CREATE TABLE IF NOT EXISTS api_keys (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, key_hash VARCHAR(64) NOT NULL UNIQUE, key_prefix VARCHAR(20) NOT NULL, name VARCHAR(100) NOT NULL DEFAULT 'Default API Key', tier VARCHAR(20) NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'enterprise')), rate_limit_per_hour INTEGER NOT NULL DEFAULT 120, is_active BOOLEAN NOT NULL DEFAULT TRUE, last_used_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)",
-      "CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)",
-      "CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)",
-      "CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active)",
       "ALTER TABLE employers ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE",
       "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_tick_status VARCHAR(20) NOT NULL DEFAULT 'unverified'",
       "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_tick_doc_url TEXT",
       "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_applied_at TIMESTAMPTZ",
       "ALTER TABLE employers ADD COLUMN IF NOT EXISTS verification_tick_notes TEXT",
-      "CREATE INDEX IF NOT EXISTS idx_employers_is_verified ON employers(is_verified)",
-      "CREATE INDEX IF NOT EXISTS idx_employers_tick_status ON employers(verification_tick_status)",
+      "ALTER TABLE payments ADD COLUMN IF NOT EXISTS provider_status VARCHAR(30)",
+      "ALTER TABLE payments ADD COLUMN IF NOT EXISTS raw_payload TEXT",
+      "ALTER TABLE job_seekers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT 'other'",
+      "ALTER TABLE job_seekers DROP COLUMN IF EXISTS national_id",
+      "ALTER TABLE audit_log ALTER COLUMN target_id TYPE VARCHAR(255)",
     ];
-    for (const sql of alters) await client.query(sql);
+    for (const sql of migrations) await client.query(sql);
 
+    // 3. Fix check constraints from older schemas if necessary
     // Older databases may have a jobs.status check without 'removed' (used when moderation takes a job down)
     await client.query(`DO $$ BEGIN
       IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'jobs'::regclass AND conname = 'jobs_status_check'
@@ -105,6 +89,41 @@ async function initDb() {
       END IF;
     END $$;`);
 
+    // 4. Create indexes only after all tables and referenced columns exist
+    const indexes = [
+      "CREATE INDEX IF NOT EXISTS idx_users_email ON users(lower(email))",
+      "CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role, status)",
+      "CREATE INDEX IF NOT EXISTS idx_employers_is_verified ON employers(is_verified)",
+      "CREATE INDEX IF NOT EXISTS idx_employers_tick_status ON employers(verification_tick_status)",
+      "CREATE INDEX IF NOT EXISTS idx_payments_employer ON payments(employer_id)",
+      "CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)",
+      "CREATE INDEX IF NOT EXISTS idx_jobs_employer_id ON jobs(employer_id)",
+      "CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)",
+      "CREATE INDEX IF NOT EXISTS idx_jobs_active_created ON jobs(status, created_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_jobs_category ON jobs(category)",
+      "CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location)",
+      "CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id)",
+      "CREATE INDEX IF NOT EXISTS idx_applications_employee ON applications(employee_id)",
+      "CREATE INDEX IF NOT EXISTS idx_applications_job_status ON applications(job_id, status)",
+      "CREATE INDEX IF NOT EXISTS idx_applications_emp_status ON applications(employee_id, status)",
+      "CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)",
+      "CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, purpose)",
+      "CREATE INDEX IF NOT EXISTS idx_chat_app ON chat_messages(application_id)",
+      "CREATE INDEX IF NOT EXISTS idx_chat_app_created ON chat_messages(application_id, created_at ASC)",
+      "CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_file_scans_sha256 ON file_scans(sha256)",
+      "CREATE INDEX IF NOT EXISTS idx_file_scans_status ON file_scans(status)",
+      "CREATE INDEX IF NOT EXISTS idx_reports_job ON reports(job_id)",
+      "CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)",
+      "CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)",
+      "CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)",
+      "CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active)",
+    ];
+    for (const sql of indexes) await client.query(sql);
+
+    // 5. Data grandfathering & backfill
     if (usersExist.rows[0].t && !hadVerifyColumn) {
       // Accounts that existed before email verification keep working
       await client.query('UPDATE users SET email_verified_at = COALESCE(created_at, NOW()) WHERE email_verified_at IS NULL');
@@ -112,6 +131,7 @@ async function initDb() {
     // Existing results should not light up the "new result" dot for everyone after the upgrade
     await client.query("UPDATE applications SET status_changed_at = COALESCE(updated_at, created_at), result_seen_at = COALESCE(updated_at, created_at) WHERE status <> 'pending' AND status_changed_at IS NULL");
 
+    // 6. Legacy data imports
     await importLegacyChat(client);
     console.log('[Database] Connected to PostgreSQL and schema is up to date.');
   } finally {
