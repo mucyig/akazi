@@ -72,7 +72,7 @@ router.post('/paypack/initiate', authenticateToken, requireRole('employer'), ini
     for (const row of older.rows) {
       let live;
       try {
-        live = await withTimeout(paypack.findTransaction(row.ref), 5000);
+        live = await withTimeout(paypack.findTransaction(row.ref), 15000);
       } catch (e) {
         console.warn('[Payments] Could not check earlier payment', row.ref, e.message);
         return res.status(409).json({ message: 'We are still checking your previous payment request. Please wait a few minutes before trying again.' });
@@ -141,7 +141,7 @@ router.get('/paypack/status/:ref', authenticateToken, async (req, res) => {
       if (now - lastCheck >= 10000) {
         statusCheckThrottleMap.set(ref, now);
         try {
-          const live = await withTimeout(paypack.findTransaction(ref), 5000);
+          const live = await withTimeout(paypack.findTransaction(ref), 15000);
           const confirmed = live?.data || live;
           if (confirmed) {
             const info = buildWebhookUpdatePayload(confirmed, JSON.stringify(confirmed));
